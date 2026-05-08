@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import Home from "./pages/Home";
 import GenerateSP from "./pages/GenerateSP";
 import EvaluateSP from "./pages/EvaluateSP";
+import Dashboard from "./pages/Dashboard";
 
-type Page = "home" | "generate" | "evaluate";
+type Page = "home" | "generate" | "evaluate" | "dashboard";
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
@@ -28,6 +29,7 @@ export default function App() {
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.2s",
+    whiteSpace: "nowrap",
   });
 
   return (
@@ -70,46 +72,29 @@ export default function App() {
             }}
           >
             <span style={{ fontSize: 20 }}>⚡</span>
-            <span
-              style={{
-                fontWeight: 800,
-                fontSize: 16,
-                color: "var(--text)",
-                letterSpacing: "-0.01em",
-              }}
-            >
+            <span style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", letterSpacing: "-0.01em" }}>
               Plateforme SP
             </span>
-            <span
-              style={{
-                padding: "2px 8px",
-                borderRadius: 6,
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10,
-                fontWeight: 600,
-                background: "var(--bg3)",
-                border: "1px solid var(--border)",
-                color: "var(--text3)",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <span style={{
+              padding: "2px 8px", borderRadius: 6,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+              background: "var(--bg3)", border: "1px solid var(--border)", color: "var(--text3)",
+              whiteSpace: "nowrap",
+            }}>
               Tronc Commun · Maroc
             </span>
           </button>
 
           {/* Nav */}
-          <nav style={{ display: "flex", gap: 6, marginLeft: 12 }}>
-            <button
-              style={navBtnStyle(page === "generate")}
-              onClick={() => setPage("generate")}
-            >
+          <nav style={{ display: "flex", gap: 4, marginLeft: 8, flexWrap: "nowrap" }}>
+            <button style={navBtnStyle(page === "generate")} onClick={() => setPage("generate")}>
               ✦ Générer SP
             </button>
-            <button
-              style={navBtnStyle(page === "evaluate")}
-              onClick={() => setPage("evaluate")}
-            >
+            <button style={navBtnStyle(page === "evaluate")} onClick={() => setPage("evaluate")}>
               ◈ Évaluer SP
+            </button>
+            <button style={navBtnStyle(page === "dashboard")} onClick={() => setPage("dashboard")}>
+              📊 Tableau de bord
             </button>
           </nav>
 
@@ -120,26 +105,14 @@ export default function App() {
             onClick={() => setIsDark(!isDark)}
             title={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              border: "1px solid var(--border)",
-              background: "var(--bg3)",
-              color: "var(--text)",
-              fontSize: 18,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.2s",
-              flexShrink: 0,
+              width: 40, height: 40, borderRadius: 10,
+              border: "1px solid var(--border)", background: "var(--bg3)",
+              color: "var(--text)", fontSize: 18, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.2s", flexShrink: 0,
             }}
-            onMouseOver={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)";
-            }}
-            onMouseOut={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
-            }}
+            onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+            onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; }}
           >
             {isDark ? "🌙" : "☀️"}
           </button>
@@ -150,6 +123,7 @@ export default function App() {
       {page === "home" && <Home onNavigate={(p) => setPage(p as Page)} />}
       {page === "generate" && <GenerateSP />}
       {page === "evaluate" && <EvaluateSP />}
+      {page === "dashboard" && <Dashboard />}
     </div>
   );
 }

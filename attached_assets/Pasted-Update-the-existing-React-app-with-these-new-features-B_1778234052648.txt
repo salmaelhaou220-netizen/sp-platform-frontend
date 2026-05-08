@@ -1,0 +1,105 @@
+Update the existing React app with these new features:
+
+BACKEND URL: https://sp-platform-backend.onrender.com
+
+=== CHANGES TO GENERATE SP PAGE ===
+
+Add these new form fields:
+
+1. TYPE DE SP (radio buttons or styled tabs, required):
+   - "📚 SP Didactique" (introduire une notion nouvelle)
+   - "🔍 SP Évaluation Formative" (vérifier la progression en cours)
+   - "📋 SP Évaluation Sommative" (certifier les acquis en fin de module)
+   Show a small description under each option explaining its purpose.
+
+2. PROFILS VARK (multi-select checkboxes, can select multiple):
+   - ☐ V — Visuel
+   - ☐ A — Auditif
+   - ☐ R — Lecture/Écriture
+   - ☐ K — Kinesthésique
+   - ☐ Selon le contexte (IA choisit automatiquement)
+   If "Selon le contexte" is selected, disable the others.
+   At least one must be selected.
+
+Update the API call body to:
+{
+  "module": selected module,
+  "contenu": selected contenu,
+  "type_sp": "didactique" | "formative" | "sommative",
+  "profils_vark": array of selected letters e.g. ["V", "K"] or ["selon_contexte"],
+  "niveau_difficulte": selected niveau,
+  "contexte_souhaite": selected contexte,
+  "langue": selected langue
+}
+
+=== CHANGES TO RESULT DISPLAY ===
+
+The API now returns this structure:
+{
+  titre, type_sp, module, contenu_vise, competence_cible, duree_totale,
+  ancrage_theorique: { objectif_meirieu, obstacle_astolfi, sens_de_vecchi, devolution_brousseau },
+  versions_vark: [
+    {
+      profil: "V" | "A" | "R" | "K",
+      justification: "...",
+      situation: { contexte, declencheur, question_centrale, supports_fournis[] },
+      tache: { description, produit_attendu, criteres_reussite[] },
+      questions_evaluation: [ { numero, question, type, points, element_reponse } ]
+    }
+  ],
+  mise_en_place_classe: {
+    organisation, duree_totale_seance,
+    etapes: [
+      { numero, nom, duree, role_enseignant, role_eleve, consigne_cle }
+    ]
+  },
+  auto_evaluation_enseignant: { questions_reflexion[], indicateurs_obstacle_franchi[] }
+}
+
+Display the result in these sections:
+
+SECTION 1 — Header card:
+  Title + type badge (color: blue=didactique, orange=formative, red=sommative)
+  Module + competence + duration badges
+  Ancrage théorique (Meirieu / Astolfi / De Vecchi / Brousseau) in a grid of 4 cards
+
+SECTION 2 — Versions VARK (tabs if multiple profiles):
+  If multiple profils, show tabs: "Visuel", "Auditif", etc.
+  Each tab shows:
+  - Justification badge explaining why this profile
+  - Situation card (contexte, déclencheur, question centrale, supports list)
+  - Tâche card (description, produit attendu, critères with green checkmarks)
+  - Questions card (only for formative/sommative):
+    Table with columns: N° | Question | Type | Points | Réponse attendue
+    Color code question type: blue=restitution, orange=application, green=transfert
+
+SECTION 3 — Mise en place en classe:
+  Title: "🏫 Mise en place en classe" 
+  Show organisation + total duration
+  Timeline of 7 steps, each step is a card with:
+  - Step number circle (colored) + step name + duration badge
+  - Two columns: "Rôle enseignant" and "Rôle élève"  
+  - "Consigne clé" highlighted box at bottom of card
+  Steps: 1-Motivation, 2-Dévolution, 3-Investigation, 4-Validation,
+         5-Conclusion/Institutionnalisation, 6-Généralisation, 7-Évaluation
+
+SECTION 4 — Auto-évaluation enseignant:
+  Checklist of reflection questions (checkboxes the teacher can tick)
+  List of observable indicators
+
+=== ADD DASHBOARD PAGE ===
+
+Add "📊 Tableau de bord" button in the nav header.
+
+Dashboard page shows:
+- Stats row: total SP générées / total SP évaluées / this week count
+- Table of saved SPs with columns:
+  Titre | Module | Type | Profil VARK | Date | Actions (Voir / Supprimer)
+- For now, store SP history in localStorage (array of objects)
+- When a SP is generated successfully, automatically save it to localStorage
+- Empty state: icon + "Aucune SP générée pour l'instant"
+
+=== KEEP EXISTING ===
+- Dark/light mode toggle
+- Evaluate SP page (unchanged)
+- All existing styles and CSS variables
