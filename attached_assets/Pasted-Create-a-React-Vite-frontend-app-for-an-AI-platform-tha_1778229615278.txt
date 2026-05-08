@@ -1,0 +1,120 @@
+Create a React + Vite frontend app for an AI platform that helps Moroccan informatics teachers design "situations-problèmes" (SP).
+
+The app has 3 pages: Home, Generate SP, Evaluate SP.
+Add a light/dark mode toggle button in the header (sun/moon icon).
+
+BACKEND URL: https://sp-platform-backend.onrender.com
+
+=== THEME SYSTEM ===
+Use CSS variables on :root for dark mode (default) and a .light class on <body> for light mode.
+Toggle by adding/removing "light" class on document.body with useState.
+
+Dark mode variables:
+--bg: #0d0f14
+--bg2: #13161e
+--bg3: #1a1e2a
+--border: #252a38
+--accent: #4f7cff
+--accent2: #7c5cfc
+--accent-glow: rgba(79,124,255,0.15)
+--text: #e8eaf0
+--text2: #8b90a0
+--text3: #555a6e
+--green: #3ecf8e
+--orange: #f59e0b
+--red: #ef4444
+--shadow: rgba(0,0,0,0.4)
+
+Light mode variables (.light class on body):
+--bg: #f8f9fc
+--bg2: #ffffff
+--bg3: #f0f2f7
+--border: #e2e5ef
+--accent: #3b6ff0
+--accent2: #6b4fd8
+--accent-glow: rgba(59,111,240,0.10)
+--text: #0f1117
+--text2: #5a6178
+--text3: #9ba3bb
+--green: #1a9e68
+--orange: #d97706
+--red: #dc2626
+--shadow: rgba(0,0,0,0.08)
+
+Font: Sora (Google Fonts) for text, JetBrains Mono for labels/badges
+
+=== HEADER ===
+Logo "⚡ Plateforme SP" + badge "Tronc Commun · Maroc"
+Nav: "✦ Générer SP" and "◈ Évaluer SP" buttons
+Right side: toggle button showing 🌙 in dark mode and ☀️ in light mode
+Clicking it switches the theme
+
+=== PAGE 1 — HOME ===
+Hero title: "Concevez des situations-problèmes pédagogiquement solides"
+Subtitle about Meirieu, Astolfi, Perrenoud, VARK
+Two CTA buttons: "✦ Générer une SP" (gradient blue-purple) and "◈ Évaluer une SP" (outlined)
+4 feature cards: Génération IA / Évaluation /20 / Différenciation VARK / Export PDF-Word
+
+=== PAGE 2 — GENERATE SP ===
+Left panel (form):
+- Dropdown MODULE (4 options):
+  * Module 1 — Généralités sur les systèmes informatiques
+  * Module 2 — Les logiciels
+  * Module 3 — Algorithmique et programmation
+  * Module 4 — Réseaux et Internet
+- Dropdown CONTENU VISÉ (changes based on module):
+  * Module 1: Terminologie de base / Structure d'un ordinateur / Types de logiciels / Domaines d'application
+  * Module 2: Système d'exploitation / Gestion fichiers et dossiers / Traitement de texte / Tableur formules et adressage / Tableur graphiques
+  * Module 3: Constantes variables types / Instructions de base lecture écriture affectation / Structure séquentielle / Structure sélective / Transcription algorithme
+  * Module 4: Notion de réseau / Typologie réseaux LAN MAN WAN / Internet connexion et services / Éthique et citoyenneté numérique
+- Dropdown PROFIL VARK: V — Visuel / A — Auditif / R — Lecture-Écriture / K — Kinesthésique / Mixte
+- Dropdown NIVEAU: débutant / intermédiaire / avancé
+- Dropdown CONTEXTE: vie quotidienne / monde professionnel / environnement scolaire / actualité technologique
+- Dropdown LANGUE: français / arabe
+- Button "⚡ Générer la SP" → POST /generate-sp
+
+Right panel shows generated SP with sections:
+- Title + badges (module, VARK, duration)
+- Ancrage théorique (Meirieu, Astolfi, De Vecchi)
+- Situation (contexte, déclencheur, question centrale, supports)
+- Tâche (description, produit attendu, critères with green checkmarks)
+- Dispositif pédagogique (organisation, étapes numérotées, rôle enseignant)
+- Différenciation VARK
+
+API call:
+POST https://sp-platform-backend.onrender.com/generate-sp
+Body: { "module", "contenu", "competence": "Compétence officielle liée à : " + contenu, "niveau_difficulte", "profil_vark": first letter only, "contexte_souhaite", "langue" }
+Response: { success: true, data: { titre, module, profil_vark, duree_estimee, ancrage_theorique: {objectif_meirieu, obstacle_astolfi, sens_de_vecchi}, situation: {contexte, declencheur, question_centrale, supports_fournis[]}, tache: {description, produit_attendu, criteres_reussite[]}, dispositif_pedagogique: {organisation, etapes_suggerees[], role_enseignant}, differenciation_vark: {profil_applique, adaptation, variante_autre_profil} } }
+
+=== PAGE 3 — EVALUATE SP ===
+Left panel (form):
+- Dropdown MODULE (same 4 options)
+- Text input SÉANCE / SÉQUENCE
+- Large textarea SITUATION-PROBLÈME (12 rows)
+- Button "◈ Lancer l'évaluation" → POST /evaluate-sp
+
+Right panel shows evaluation report:
+- Score card: big /20 number + colored niveau badge + resume text
+- 6 criteria with progress bars (red<50%, orange<75%, green>=75%):
+  obstacle/4, sens_motivation/4, coherence_pedagogique/4, alignement_programme/4, dispositif_pedagogique/2, differenciation/2
+  Each bar has score, colored bar, suggestion below
+- Priority recommendations list
+- Verdict card (green=utilisable, red=à retravailler)
+
+API call:
+POST https://sp-platform-backend.onrender.com/evaluate-sp
+Body: { "module", "seance", "situation_probleme" }
+Response: { success: true, data: { evaluation_globale: {note_sur_20, niveau_qualite, resume_evaluateur}, criteres: {obstacle, sens_motivation, coherence_pedagogique, alignement_programme, dispositif_pedagogique, differenciation} each {score, sur, suggestion}, recommandations_prioritaires: [{priorite, critere_concerne, action}], verdict_usage: {utilisable_en_classe, message_enseignant} } }
+
+=== LOADING & ERRORS ===
+Spinning loader during API calls.
+Empty state with icon when no result.
+Red error box if API fails.
+
+=== IMPORTANT ===
+- Single page app, useState for navigation and theme
+- Pass isDark and toggleTheme as props to all pages
+- All dropdowns, inputs, textareas must use CSS variables for bg/border/text so they adapt to theme
+- Smooth transition: add "transition: background 0.3s, color 0.3s" on body
+- No React Router, no TypeScript
+- Import Sora + JetBrains Mono from Google Fonts in index.html
