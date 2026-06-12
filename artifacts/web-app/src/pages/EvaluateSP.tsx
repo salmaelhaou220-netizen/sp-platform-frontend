@@ -508,10 +508,11 @@ export default function EvaluateSP({ user }: { user: any }) {
                   <span>🎯</span> Recommandations prioritaires
                 </div>
                 {result.recommandations_prioritaires.map((r, i) => {
+                  const prioriteStr = r.priorite ? String(r.priorite).toLowerCase() : "";
                   const prioColor =
-                    r.priorite?.toLowerCase() === "haute"
+                    prioriteStr === "haute" || prioriteStr === "1"
                       ? "var(--red)"
-                      : r.priorite?.toLowerCase() === "moyenne"
+                      : prioriteStr === "moyenne" || prioriteStr === "2"
                       ? "var(--orange)"
                       : "var(--green)";
                   return (
