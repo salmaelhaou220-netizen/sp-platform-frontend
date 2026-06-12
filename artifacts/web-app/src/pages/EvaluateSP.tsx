@@ -147,7 +147,7 @@ function CritereBar({
   );
 }
 
-export default function EvaluateSP() {
+export default function EvaluateSP({ user }: { user: any }) {
   const [moduleIdx, setModuleIdx] = useState(0);
   const [seance, setSeance] = useState("");
   const [situationText, setSituationText] = useState("");

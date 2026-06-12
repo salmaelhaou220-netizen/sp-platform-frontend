@@ -5,37 +5,29 @@
 }
 
 :root {
-  --bg: #0d0f14;
-  --bg2: #13161e;
-  --bg3: #1a1e2a;
-  --border: #252a38;
-  --accent: #4f7cff;
-  --accent2: #7c5cfc;
-  --accent-glow: rgba(79,124,255,0.15);
-  --text: #e8eaf0;
-  --text2: #8b90a0;
-  --text3: #555a6e;
-  --green: #3ecf8e;
-  --orange: #f59e0b;
-  --red: #ef4444;
-  --shadow: rgba(0,0,0,0.4);
-}
-
-body.light {
-  --bg: #f8f9fc;
-  --bg2: #ffffff;
-  --bg3: #f0f2f7;
-  --border: #e2e5ef;
-  --accent: #3b6ff0;
-  --accent2: #6b4fd8;
-  --accent-glow: rgba(59,111,240,0.10);
-  --text: #0f1117;
-  --text2: #5a6178;
-  --text3: #9ba3bb;
-  --green: #1a9e68;
-  --orange: #d97706;
-  --red: #dc2626;
-  --shadow: rgba(0,0,0,0.08);
+  --bg: #F7F9FC;
+  --bg2: #FFFFFF;
+  --bg3: #EEF2F7;
+  --border: #DDE3ED;
+  --accent: #3B6FF0;
+  --accent2: #6B4FD8;
+  --accent-hover: #2952CC;
+  --accent-glow: rgba(59, 111, 240, 0.10);
+  --text: #0F1117;
+  --text2: #4A5568;
+  --text3: #9BA3BB;
+  --green: #1A9E68;
+  --green-bg: #E8F8F1;
+  --orange: #D97706;
+  --orange-bg: #FEF3E2;
+  --red: #DC2626;
+  --red-bg: #FEE2E2;
+  --blue-bg: #EBF2FF;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --radius: 12px;
+  --radius-sm: 8px;
 }
 
 body {
@@ -43,7 +35,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  transition: background 0.3s, color 0.3s;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -54,10 +46,22 @@ body {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F7F9FC;
+}
+::-webkit-scrollbar-thumb {
+  background: #DDE3ED;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9BA3BB;
+}
 
 /* Selection */
-::selection { background: var(--accent-glow); color: var(--accent); }
+::selection {
+  background: var(--accent-glow);
+  color: var(--accent);
+}

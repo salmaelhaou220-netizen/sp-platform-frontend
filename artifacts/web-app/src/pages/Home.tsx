@@ -1,96 +1,124 @@
+import React from "react";
+
 interface HomeProps {
+  user?: any;
   onNavigate: (page: string) => void;
 }
 
-export default function Home({ onNavigate }: HomeProps) {
+export default function Home({ user, onNavigate }: HomeProps) {
   const features = [
     {
       icon: "⚡",
       title: "Génération IA",
       desc: "Situations-problèmes générées automatiquement selon le module, le profil VARK et le niveau.",
-      color: "var(--accent)",
+      bgColor: "#EBF2FF",
+      iconColor: "#3B6FF0",
     },
     {
       icon: "◈",
       title: "Évaluation /20",
       desc: "Évaluez vos SP sur 6 critères pédagogiques issus des travaux de Meirieu et Astolfi.",
-      color: "var(--accent2)",
+      bgColor: "#F3E8FF",
+      iconColor: "#6B4FD8",
     },
     {
       icon: "◉",
       title: "Différenciation VARK",
       desc: "Adaptation automatique au profil d'apprentissage : Visuel, Auditif, Lecture, Kinesthésique.",
-      color: "var(--green)",
+      bgColor: "#E8F8F1",
+      iconColor: "#1A9E68",
     },
     {
       icon: "⬡",
       title: "Export PDF/Word",
       desc: "Exportez vos situations-problèmes prêtes à l'emploi en classe directement.",
-      color: "var(--orange)",
+      bgColor: "#FEF3E2",
+      iconColor: "#D97706",
     },
   ];
 
   return (
-    <main style={{ flex: 1, padding: "0 24px 60px" }}>
+    <main style={{ flex: 1, padding: "0 24px 60px", background: "#F7F9FC" }}>
       {/* Hero */}
       <section
         style={{
-          maxWidth: 760,
+          maxWidth: 720,
           margin: "0 auto",
           padding: "80px 0 56px",
           textAlign: "center",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
         }}
       >
+        {/* Top Badge: blue pill with dot indicator */}
         <div
           style={{
-            display: "inline-block",
+            display: "inline-flex",
+            alignItems: "center",
             padding: "6px 16px",
             borderRadius: 100,
-            border: "1px solid var(--border)",
-            background: "var(--accent-glow)",
-            color: "var(--accent)",
+            border: "1px solid #C7D9FD",
+            background: "#EBF2FF",
+            color: "#3B6FF0",
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 12,
-            fontWeight: 500,
+            fontWeight: 600,
             letterSpacing: "0.05em",
             marginBottom: 28,
           }}
         >
-          Tronc Commun · Maroc · IA Pédagogique
+          <span style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: "#3B6FF0",
+            display: "inline-block",
+            marginRight: 8,
+          }} />
+          IA Pédagogique · MEN Maroc 2005
         </div>
 
+        {/* H1 Title with gradient on last word */}
         <h1
           style={{
-            fontSize: "clamp(28px, 5vw, 52px)",
-            fontWeight: 800,
-            lineHeight: 1.15,
+            fontSize: 40,
+            fontWeight: 700,
+            color: "#0F1117",
+            lineHeight: 1.2,
             marginBottom: 20,
-            background: "linear-gradient(135deg, var(--text) 0%, var(--accent) 60%, var(--accent2) 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
+            maxWidth: 680,
           }}
         >
-          Concevez des situations‑problèmes pédagogiquement solides
+          Concevez des situations-problèmes pédagogiquement{" "}
+          <span
+            style={{
+              background: "linear-gradient(135deg, #3B6FF0, #6B4FD8)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              display: "inline-block",
+            }}
+          >
+            solides
+          </span>
         </h1>
 
+        {/* Subtitle */}
         <p
           style={{
-            fontSize: 17,
-            color: "var(--text2)",
-            maxWidth: 580,
+            fontSize: 18,
+            color: "#4A5568",
+            maxWidth: 520,
             margin: "0 auto 40px",
             lineHeight: 1.7,
           }}
         >
-          Fondée sur les approches de{" "}
-          <span style={{ color: "var(--accent)" }}>Meirieu</span>,{" "}
-          <span style={{ color: "var(--accent2)" }}>Astolfi</span>,{" "}
-          <span style={{ color: "var(--green)" }}>Perrenoud</span> et le modèle{" "}
-          <span style={{ color: "var(--orange)" }}>VARK</span>, cette plateforme
+          Fondée sur les approches de Meirieu, Astolfi, Perrenoud et le modèle VARK, cette plateforme
           aide les enseignants d'informatique à créer des séquences riches de sens.
         </p>
 
+        {/* CTA Buttons */}
         <div
           style={{
             display: "flex",
@@ -102,25 +130,25 @@ export default function Home({ onNavigate }: HomeProps) {
           <button
             onClick={() => onNavigate("generate")}
             style={{
-              padding: "14px 30px",
-              borderRadius: 12,
+              padding: "14px 28px",
+              borderRadius: 10,
               border: "none",
-              background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-              color: "#fff",
+              background: "linear-gradient(135deg, #3B6FF0, #6B4FD8)",
+              color: "#FFFFFF",
               fontFamily: "'Sora', sans-serif",
               fontSize: 15,
               fontWeight: 600,
               cursor: "pointer",
-              boxShadow: "0 4px 24px var(--accent-glow)",
-              transition: "opacity 0.2s, transform 0.15s",
+              boxShadow: "0 4px 20px rgba(59,111,240,0.30)",
+              transition: "all 0.2s ease",
             }}
             onMouseOver={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.opacity = "0.9";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 24px rgba(59,111,240,0.40)";
             }}
             onMouseOut={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.opacity = "1";
               (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 20px rgba(59,111,240,0.30)";
             }}
           >
             ✦ Générer une SP
@@ -129,26 +157,24 @@ export default function Home({ onNavigate }: HomeProps) {
           <button
             onClick={() => onNavigate("evaluate")}
             style={{
-              padding: "14px 30px",
-              borderRadius: 12,
-              border: "1.5px solid var(--border)",
-              background: "transparent",
-              color: "var(--text)",
+              padding: "14px 28px",
+              borderRadius: 10,
+              border: "1.5px solid #DDE3ED",
+              background: "#FFFFFF",
+              color: "#0F1117",
               fontFamily: "'Sora', sans-serif",
               fontSize: 15,
               fontWeight: 600,
               cursor: "pointer",
-              transition: "border-color 0.2s, background 0.2s, transform 0.15s",
+              transition: "all 0.2s ease",
             }}
             onMouseOver={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)";
-              (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-glow)";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#3B6FF0";
+              (e.currentTarget as HTMLButtonElement).style.background = "#F0F4FF";
             }}
             onMouseOut={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
-              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#DDE3ED";
+              (e.currentTarget as HTMLButtonElement).style.background = "#FFFFFF";
             }}
           >
             ◈ Évaluer une SP
@@ -156,7 +182,7 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
       </section>
 
-      {/* Feature cards */}
+      {/* Feature cards (4 cards grid, max-width 900px) */}
       <section
         style={{
           maxWidth: 900,
@@ -166,53 +192,59 @@ export default function Home({ onNavigate }: HomeProps) {
           gap: 20,
         }}
       >
-        {features.map((f) => (
+        {features.map((f, i) => (
           <div
-            key={f.title}
+            key={i}
             style={{
-              background: "var(--bg2)",
-              border: "1px solid var(--border)",
-              borderRadius: 16,
-              padding: "28px 24px",
-              transition: "border-color 0.2s, transform 0.2s",
+              background: "#FFFFFF",
+              border: "1px solid #DDE3ED",
+              borderRadius: 12,
+              padding: 24,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              transition: "all 0.2s ease",
               cursor: "default",
             }}
             onMouseOver={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = f.color;
-              (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)";
+              (e.currentTarget as HTMLDivElement).style.borderColor = "#3B6FF0";
+              (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(59,111,240,0.12)";
+              (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
             }}
             onMouseOut={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)";
+              (e.currentTarget as HTMLDivElement).style.borderColor = "#DDE3ED";
+              (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)";
               (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
             }}
           >
+            {/* Icon circle 32px with colored background */}
             <div
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                background: `color-mix(in srgb, ${f.color} 15%, transparent)`,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: f.bgColor,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 22,
+                fontSize: 16,
+                color: f.iconColor,
                 marginBottom: 16,
-                border: `1px solid color-mix(in srgb, ${f.color} 30%, transparent)`,
               }}
             >
               {f.icon}
             </div>
+            
             <h3
               style={{
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: 700,
-                color: "var(--text)",
+                color: "#0F1117",
                 marginBottom: 8,
               }}
             >
               {f.title}
             </h3>
-            <p style={{ fontSize: 13.5, color: "var(--text2)", lineHeight: 1.65 }}>
+            
+            <p style={{ fontSize: 13, color: "#4A5568", lineHeight: 1.65 }}>
               {f.desc}
             </p>
           </div>
