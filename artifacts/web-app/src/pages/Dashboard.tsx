@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import SPResultDisplay, { type SPResult } from "../components/SPResultDisplay";
+import SPEvaluationDisplay from "../components/SPEvaluationDisplay";
 import { supabase } from "../lib/supabase";
 import { exportAsPDF, exportAsWord } from "../utils/exportSP";
 
@@ -18,11 +19,13 @@ const TYPE_COLOR: Record<string, string> = {
   didactique: "var(--accent)",
   formative: "var(--orange)",
   sommative: "var(--red)",
+  evaluation: "var(--green)",
 };
 const TYPE_LABEL: Record<string, string> = {
   didactique: "📚 Didactique",
   formative: "🔍 Formative",
   sommative: "📋 Sommative",
+  evaluation: "📝 Évaluation",
 };
 const PROFIL_LABEL: Record<string, string> = { V: "👁 V", A: "👂 A", R: "📖 R", K: "🤸 K" };
 
@@ -59,25 +62,29 @@ function DetailModal({ entry, onClose }: { entry: SPEntry; onClose: () => void }
           position: "sticky", top: 0, background: "var(--bg)", borderRadius: "20px 20px 0 0", zIndex: 10,
         }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            📄 Détail SP
+            {entry.type_sp === "evaluation" ? "📝 Détail Évaluation" : "📄 Détail SP"}
           </span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => exportAsPDF(entry.data)}
-              style={{
-                padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
-                border: "1px solid var(--red)", background: "var(--bg3)",
-                color: "var(--red)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
-              }}
-            >🖨️ PDF</button>
-            <button
-              onClick={() => exportAsWord(entry.data)}
-              style={{
-                padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
-                border: "1px solid var(--accent)", background: "var(--bg3)",
-                color: "var(--accent)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
-              }}
-            >📄 Word</button>
+            {entry.type_sp !== "evaluation" && (
+              <>
+                <button
+                  onClick={() => exportAsPDF(entry.data)}
+                  style={{
+                    padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                    border: "1px solid var(--red)", background: "var(--bg3)",
+                    color: "var(--red)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
+                  }}
+                >🖨️ PDF</button>
+                <button
+                  onClick={() => exportAsWord(entry.data)}
+                  style={{
+                    padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                    border: "1px solid var(--accent)", background: "var(--bg3)",
+                    color: "var(--accent)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
+                  }}
+                >📄 Word</button>
+              </>
+            )}
             <button
               onClick={onClose}
               style={{
@@ -90,7 +97,14 @@ function DetailModal({ entry, onClose }: { entry: SPEntry; onClose: () => void }
         </div>
         {/* Modal Content */}
         <div style={{ padding: "24px" }}>
-          <SPResultDisplay result={entry.data} />
+          {entry.type_sp === "evaluation" ? (
+            <SPEvaluationDisplay
+              result={entry.data.evaluation}
+              situationText={entry.data.situation_probleme}
+            />
+          ) : (
+            <SPResultDisplay result={entry.data} />
+          )}
         </div>
       </div>
     </div>
@@ -102,6 +116,7 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
   const [history, setHistory] = useState<SPEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterModule, setFilterModule] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "generated" | "evaluated">("all");
   const [modalEntry, setModalEntry] = useState<SPEntry | null>(null);
 
   useEffect(() => {
@@ -113,24 +128,21 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
           .from('situations_problemes')
           .select('*')
           .eq('user_id', user.id)
-          .eq('type_sp', 'didactique')
           .order('created_at', { ascending: false });
 
         if (error) {
           console.error("Error fetching situations_problemes:", error);
         } else if (data) {
-          const mapped: SPEntry[] = data
-            .filter((dbRow: any) => dbRow.type_sp === "didactique")
-            .map((dbRow: any) => ({
-              id: dbRow.id,
-              titre: dbRow.titre,
-              type_sp: dbRow.type_sp,
-              module: dbRow.module,
-              contenu_vise: dbRow.contenu_vise,
-              profils: dbRow.profils_vark || [],
-              date: dbRow.created_at ? new Date(dbRow.created_at).toLocaleDateString("fr-MA") : "",
-              data: dbRow.data
-            }));
+          const mapped: SPEntry[] = data.map((dbRow: any) => ({
+            id: dbRow.id,
+            titre: dbRow.titre,
+            type_sp: dbRow.type_sp,
+            module: dbRow.module,
+            contenu_vise: dbRow.contenu_vise,
+            profils: dbRow.profils_vark || [],
+            date: dbRow.created_at ? new Date(dbRow.created_at).toLocaleDateString("fr-MA") : "",
+            data: dbRow.data
+          }));
           setHistory(mapped);
         }
       } catch (err) {
@@ -163,7 +175,8 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
   };
 
   // Stats
-  const totalSP = history.length;
+  const totalSP = history.filter((e) => e.type_sp !== "evaluation").length;
+  const totalEval = history.filter((e) => e.type_sp === "evaluation").length;
 
   // Unique modules for filter
   const modules = Array.from(new Set(history.map((e) => e.module).filter(Boolean)));
@@ -171,11 +184,16 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
   // Filtered list
   const filtered = history.filter((e) => {
     const moduleOk = !filterModule || e.module === filterModule;
-    return moduleOk;
+    const tabOk =
+      activeTab === "all" ||
+      (activeTab === "generated" && e.type_sp !== "evaluation") ||
+      (activeTab === "evaluated" && e.type_sp === "evaluation");
+    return moduleOk && tabOk;
   });
 
   const stats = [
-    { label: "SP didactiques générées", value: totalSP, color: "var(--accent)", icon: "📚" },
+    { label: "Situations-problèmes générées", value: totalSP, color: "var(--accent)", icon: "📚" },
+    { label: "Situations-problèmes évaluées", value: totalEval, color: "var(--green)", icon: "📝" },
   ];
 
   return (
@@ -183,16 +201,15 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
       <main style={{ flex: 1, padding: "32px 24px 60px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>📊 Tableau de bord</h1>
         <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 32 }}>
-          Historique de vos situations-problèmes générées (didactiques uniquement)
+          Historique de vos situations-problèmes et de vos rapports d'évaluation
         </p>
 
         {/* Stats row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16, marginBottom: 32 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
           {stats.map((s) => (
             <div key={s.label} style={{
               background: "var(--bg2)", border: "1px solid var(--border)",
               borderRadius: 16, padding: "22px 24px", borderTop: `3px solid ${s.color}`,
-              maxWidth: 320,
             }}>
               <div style={{ fontSize: 28, marginBottom: 6 }}>{s.icon}</div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 36, fontWeight: 700, color: s.color, lineHeight: 1, marginBottom: 6 }}>{s.value}</div>
@@ -201,6 +218,36 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
           ))}
         </div>
 
+        {/* Tabs */}
+        {history.length > 0 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
+            {([
+              { id: "all", label: "📁 Tout", count: history.length },
+              { id: "generated", label: "📚 Générées", count: totalSP },
+              { id: "evaluated", label: "📝 Évaluées", count: totalEval }
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: "none",
+                  background: activeTab === t.id ? "var(--accent-glow)" : "transparent",
+                  color: activeTab === t.id ? "var(--accent)" : "var(--text2)",
+                  fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+                  fontFamily: "'Sora', sans-serif", display: "flex", alignItems: "center", gap: 6,
+                  transition: "all 0.2s"
+                }}
+              >
+                <span>{t.label}</span>
+                <span style={{
+                  fontSize: 11, padding: "1px 6px", borderRadius: 100,
+                  background: "var(--bg3)", color: "var(--text3)"
+                }}>{t.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+ 
         {/* Filter bar */}
         {history.length > 0 && (
           <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
@@ -292,14 +339,31 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
                       background: `color-mix(in srgb, ${tc} 14%, transparent)`,
                       color: tc, border: `1px solid color-mix(in srgb, ${tc} 35%, transparent)`,
                     }}>{TYPE_LABEL[entry.type_sp] || entry.type_sp}</span>
-                    {/* VARK profils */}
-                    {(entry.profils || []).map((p) => (
-                      <span key={p} style={{
-                        padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
-                        fontFamily: "'JetBrains Mono', monospace",
-                        background: "var(--bg3)", color: "var(--accent2)", border: "1px solid var(--border)",
-                      }}>{PROFIL_LABEL[p] || p}</span>
-                    ))}
+                    {/* VARK profils or score */}
+                    {entry.type_sp === "evaluation" ? (
+                      (() => {
+                        const note = entry.data?.evaluation?.evaluation_globale?.note_sur_20 ?? 0;
+                        const noteColor = note >= 14 ? "var(--green)" : note >= 10 ? "var(--orange)" : "var(--red)";
+                        return (
+                          <span style={{
+                            padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            background: `color-mix(in srgb, ${noteColor} 14%, transparent)`,
+                            color: noteColor, border: `1px solid color-mix(in srgb, ${noteColor} 35%, transparent)`,
+                          }}>
+                            🎯 {note}/20
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      (entry.profils || []).map((p) => (
+                        <span key={p} style={{
+                          padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
+                          fontFamily: "'JetBrains Mono', monospace",
+                          background: "var(--bg3)", color: "var(--accent2)", border: "1px solid var(--border)",
+                        }}>{PROFIL_LABEL[p] || p}</span>
+                      ))
+                    )}
                   </div>
 
                   {/* Date */}

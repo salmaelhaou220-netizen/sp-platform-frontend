@@ -15,12 +15,27 @@ interface Question {
   indice?: string | null;
   coups_de_pouce?: CoupsDePouce;
 }
-interface QuestionsDifferenciees {
-  consigne_enseignant: string;
+// New per-séance structure (V5.4+)
+interface QuestionsDeLaSeance {
   niveau_socle: Question[];
   niveau_intermediaire: Question[];
   niveau_depassement: Question[];
-  criteres_reussite: string[];
+}
+interface PhaseSeance {
+  numero_seance: number;
+  titre_seance_savoir: string;
+  objectif_de_la_seance: string;
+  questions_de_la_seance: QuestionsDeLaSeance;
+}
+interface QuestionsDifferenciees {
+  consigne_enseignant: string;
+  // Old flat format (V5.3)
+  niveau_socle?: Question[];
+  niveau_intermediaire?: Question[];
+  niveau_depassement?: Question[];
+  criteres_reussite?: string[];
+  // New per-séance format (V5.4+)
+  phases_seances?: PhaseSeance[];
 }
 interface SimulateurProfil {
   emoji: string;
@@ -479,6 +494,257 @@ function SimulateurCard({ profil, color }: { profil: SimulateurProfil; color: st
   );
 }
 
+// ── QuestionsFlat — backward compat (V5.3 flat format) ────────────────────
+function QuestionsFlat({ qd }: { qd: QuestionsDifferenciees }) {
+  return (
+    <>
+      {/* SOCLE */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          padding: "8px 14px", borderRadius: 8,
+          background: "rgba(26,158,104,0.1)", border: "1px solid rgba(26,158,104,0.25)",
+          fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 10,
+        }}>
+          🟢 SOCLE COMMUN — Accessible à tous les élèves
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {qd?.niveau_socle?.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--green)" />)}
+        </div>
+      </div>
+
+      {/* INTERMÉDIAIRE */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          padding: "8px 14px", borderRadius: 8,
+          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)",
+          fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 10,
+        }}>
+          ⚡ APPROFONDISSEMENT — Conflit cognitif
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {qd?.niveau_intermediaire?.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--orange)" />)}
+        </div>
+      </div>
+
+      {/* DÉPASSEMENT */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{
+          padding: "8px 14px", borderRadius: 8,
+          background: "rgba(59,111,240,0.08)", border: "1px solid rgba(59,111,240,0.2)",
+          fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 10,
+        }}>
+          🔵 DÉPASSEMENT — Pour les élèves avancés
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {qd?.niveau_depassement?.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--accent)" />)}
+        </div>
+      </div>
+
+      {/* CRITÈRES DE RÉUSSITE */}
+      {(qd?.criteres_reussite?.length ?? 0) > 0 && (
+        <div style={{ padding: "14px 18px", borderRadius: 10, background: "var(--bg3)", border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text2)", marginBottom: 10 }}>
+            📏 Critères de réussite
+          </div>
+          {qd.criteres_reussite!.map((c, i) => (
+            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, fontSize: 13, color: "var(--text2)" }}>
+              <span style={{ color: "var(--green)" }}>✓</span>
+              <span>{c}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── SeanceBlock — renders one séance's 3 levels ───────────────────────────
+function SeanceBlock({ phase, index }: { phase: PhaseSeance; index: number }) {
+  const [open, setOpen] = useState(index === 0); // first séance open by default
+  const SEANCE_COLORS = ["var(--accent)", "var(--orange)", "var(--green)", "#8b5cf6", "var(--red)"];
+  const color = SEANCE_COLORS[index % SEANCE_COLORS.length];
+  const qds = phase.questions_de_la_seance;
+
+  return (
+    <div style={{
+      borderRadius: 14,
+      border: `1px solid color-mix(in srgb, ${color} 30%, var(--border))`,
+      overflow: "hidden",
+      marginBottom: 16,
+    }}>
+      {/* ── Accordion Header ── */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%",
+          padding: "16px 20px",
+          background: open
+            ? `color-mix(in srgb, ${color} 10%, var(--bg3))`
+            : "var(--bg3)",
+          border: "none",
+          borderBottom: open ? `1px solid color-mix(in srgb, ${color} 20%, var(--border))` : "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          textAlign: "left",
+          transition: "background 0.2s",
+        }}
+      >
+        {/* Séance Number Badge */}
+        <span style={{
+          width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+          background: `color-mix(in srgb, ${color} 18%, transparent)`,
+          border: `2px solid color-mix(in srgb, ${color} 45%, transparent)`,
+          color, fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 14, fontWeight: 800,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {phase.numero_seance}
+        </span>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", lineHeight: 1.3, marginBottom: 4 }}>
+            {phase.titre_seance_savoir}
+          </div>
+          {phase.objectif_de_la_seance && (
+            <div style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>
+              🎯 {phase.objectif_de_la_seance}
+            </div>
+          )}
+        </div>
+
+        {/* Question count pills */}
+        <div style={{ display: "flex", gap: 6, flexShrink: 0, marginRight: 8 }}>
+          {[
+            { count: qds?.niveau_socle?.length, color: "var(--green)", label: "🟢" },
+            { count: qds?.niveau_intermediaire?.length, color: "var(--red)", label: "⚡" },
+            { count: qds?.niveau_depassement?.length, color: "var(--accent)", label: "🔵" },
+          ].map(({ count, color: c, label }) =>
+            count ? (
+              <span key={label} style={{
+                padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 700,
+                fontFamily: "'JetBrains Mono', monospace",
+                background: `color-mix(in srgb, ${c} 14%, transparent)`,
+                color: c, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`,
+              }}>
+                {label} {count}
+              </span>
+            ) : null
+          )}
+        </div>
+
+        <span style={{ color: "var(--text3)", fontSize: 13, flexShrink: 0 }}>
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {/* ── Accordion Body ── */}
+      {open && (
+        <div style={{ padding: "20px 20px 16px" }}>
+
+          {/* SOCLE */}
+          {(qds?.niveau_socle?.length ?? 0) > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{
+                padding: "8px 14px", borderRadius: 8,
+                background: "rgba(26,158,104,0.1)", border: "1px solid rgba(26,158,104,0.25)",
+                fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 10,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                🟢 SOCLE COMMUN — Accessible à tous les élèves
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {qds.niveau_socle.map((q, i) => (
+                  <QuestionCard key={i} q={q} levelColor="var(--green)" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CONFLIT COGNITIF */}
+          {(qds?.niveau_intermediaire?.length ?? 0) > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{
+                padding: "8px 14px", borderRadius: 8,
+                background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)",
+                fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 10,
+              }}>
+                ⚡ CONFLIT COGNITIF — Approfondissement
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {qds.niveau_intermediaire.map((q, i) => (
+                  <QuestionCard key={i} q={q} levelColor="var(--orange)" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* INSTITUTIONNALISATION / DÉPASSEMENT */}
+          {(qds?.niveau_depassement?.length ?? 0) > 0 && (
+            <div>
+              <div style={{
+                padding: "8px 14px", borderRadius: 8,
+                background: "rgba(59,111,240,0.08)", border: "1px solid rgba(59,111,240,0.2)",
+                fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 10,
+              }}>
+                🔵 INSTITUTIONNALISATION — Pour les élèves avancés
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {qds.niveau_depassement.map((q, i) => (
+                  <QuestionCard key={i} q={q} levelColor="var(--accent)" />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PhasesSeancesDisplay — new V5.4 format ─────────────────────────────────
+function PhasesSeancesDisplay({ phases }: { phases: PhaseSeance[] }) {
+  return (
+    <div>
+      {/* Progress timeline header */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 20,
+        padding: "10px 14px",
+        borderRadius: 10,
+        background: "var(--bg3)",
+        border: "1px solid var(--border)",
+        overflowX: "auto",
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.07em", whiteSpace: "nowrap" }}>
+          📅 Progression
+        </span>
+        {phases.map((p, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {i > 0 && <span style={{ color: "var(--border)", fontSize: 16 }}>›</span>}
+            <span style={{
+              padding: "3px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+              fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap",
+              background: "var(--bg2)", color: "var(--text2)",
+              border: "1px solid var(--border)",
+            }}>
+              S{p.numero_seance}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Séances accordion list */}
+      {phases.map((phase, i) => (
+        <SeanceBlock key={phase.numero_seance} phase={phase} index={i} />
+      ))}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function SPResultDisplay({ result }: { result: SPResult }) {
   const [activeTab, setActiveTab] = useState(0);
@@ -701,88 +967,11 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
           </div>
         )}
 
-        {/* SOCLE */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{
-            padding: "8px 14px",
-            borderRadius: 8,
-            background: "rgba(26,158,104,0.1)",
-            border: "1px solid rgba(26,158,104,0.25)",
-            fontSize: 12,
-            fontWeight: 700,
-            color: "var(--green)",
-            marginBottom: 10,
-          }}>
-            🟢 SOCLE COMMUN — Accessible à tous les élèves
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {variante.questions_differenciees?.niveau_socle?.map((q, i) => (
-              <QuestionCard key={i} q={q} levelColor="var(--green)" />
-            ))}
-          </div>
-        </div>
-
-        {/* INTERMÉDIAIRE */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{
-            padding: "8px 14px",
-            borderRadius: 8,
-            background: "rgba(220,38,38,0.08)",
-            border: "1px solid rgba(220,38,38,0.2)",
-            fontSize: 12,
-            fontWeight: 700,
-            color: "var(--red)",
-            marginBottom: 10,
-          }}>
-            ⚡ APPROFONDISSEMENT — Conflit cognitif
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {variante.questions_differenciees?.niveau_intermediaire?.map((q, i) => (
-              <QuestionCard key={i} q={q} levelColor="var(--orange)" />
-            ))}
-          </div>
-        </div>
-
-        {/* DÉPASSEMENT */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{
-            padding: "8px 14px",
-            borderRadius: 8,
-            background: "rgba(59,111,240,0.08)",
-            border: "1px solid rgba(59,111,240,0.2)",
-            fontSize: 12,
-            fontWeight: 700,
-            color: "var(--accent)",
-            marginBottom: 10,
-          }}>
-            🔵 DÉPASSEMENT — Pour les élèves avancés
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {variante.questions_differenciees?.niveau_depassement?.map((q, i) => (
-              <QuestionCard key={i} q={q} levelColor="var(--accent)" />
-            ))}
-          </div>
-        </div>
-
-        {/* CRITÈRES */}
-        {variante.questions_differenciees?.criteres_reussite?.length > 0 && (
-          <div style={{
-            padding: "14px 18px",
-            borderRadius: 10,
-            background: "var(--bg3)",
-            border: "1px solid var(--border)",
-          }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text2)", marginBottom: 10 }}>
-              📏 Critères de réussite
-            </div>
-            {variante.questions_differenciees.criteres_reussite.map((c, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, fontSize: 13, color: "var(--text2)" }}>
-                <span style={{ color: "var(--green)" }}>✓</span>
-                <span>{c}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* ── NEW FORMAT: phases_seances ─────────────────────── */}
+        {variante.questions_differenciees?.phases_seances?.length
+          ? <PhasesSeancesDisplay phases={variante.questions_differenciees.phases_seances} />
+          : <QuestionsFlat qd={variante.questions_differenciees} />
+        }
       </Card>
 
       {/* ── SECTION E : SIMULATEUR ──────────────────────────── */}
