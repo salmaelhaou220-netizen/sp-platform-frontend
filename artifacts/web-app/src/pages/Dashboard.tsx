@@ -12,7 +12,7 @@ interface SPEntry {
   contenu_vise: string;
   profils: string[];
   date: string;
-  data: SPResult;
+  data: any;
 }
 
 const TYPE_COLOR: Record<string, string> = {

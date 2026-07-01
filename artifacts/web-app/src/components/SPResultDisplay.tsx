@@ -1,7 +1,7 @@
-// SPResultDisplay.tsx — V5.3 compatible
+// SPResultDisplay.tsx — V5.5 compatible
 import { useState } from "react";
 
-// ── Types V5.3 ─────────────────────────────────────────────────────────────
+// ── Types V5.5 ─────────────────────────────────────────────────────────────
 interface CoupsDePouce {
   niveau_1_conceptuel: string;
   niveau_2_procedural: string;
@@ -14,28 +14,6 @@ interface Question {
   metacognition?: string | null;
   indice?: string | null;
   coups_de_pouce?: CoupsDePouce;
-}
-// New per-séance structure (V5.4+)
-interface QuestionsDeLaSeance {
-  niveau_socle: Question[];
-  niveau_intermediaire: Question[];
-  niveau_depassement: Question[];
-}
-interface PhaseSeance {
-  numero_seance: number;
-  titre_seance_savoir: string;
-  objectif_de_la_seance: string;
-  questions_de_la_seance: QuestionsDeLaSeance;
-}
-interface QuestionsDifferenciees {
-  consigne_enseignant: string;
-  // Old flat format (V5.3)
-  niveau_socle?: Question[];
-  niveau_intermediaire?: Question[];
-  niveau_depassement?: Question[];
-  criteres_reussite?: string[];
-  // New per-séance format (V5.4+)
-  phases_seances?: PhaseSeance[];
 }
 interface SimulateurProfil {
   emoji: string;
@@ -70,60 +48,77 @@ interface SyntheseTableau {
   regle_essentielle: string;
   exemple_projet: string;
 }
-interface MiseEnOeuvre {
-  organisation: string;
-  duree_totale: string;
+interface MiseEnOeuvreSeance {
+  organisation?: string;
+  duree_totale?: string;
   phases: Phase[];
-  synthese_tableau: SyntheseTableau;
 }
 interface AutoEval {
   checklist: string[];
   indicateurs_reussite: string[];
 }
+
+// ── V5.5 Palier ────────────────────────────────────────────────────────────
+interface Palier {
+  numero_palier: number;
+  titre_palier: string;
+  action_kinesthesique?: string;
+  obstacle_epistemologique?: {
+    formulation: string;
+    erreur_typique: string;
+    origine_confusion?: string;
+    contraintes_pedagogiques?: string[];
+  };
+  situation_partielle?: {
+    texte: string;
+    tache_finale: string;
+  };
+  questions?: {
+    consigne_enseignant?: string;
+    niveau_socle?: Question[];
+    niveau_intermediaire?: Question[];
+    niveau_depassement?: Question[];
+    criteres_reussite?: string[];
+  };
+  simulateur_classe?: SimulateurClasse;
+  mise_en_oeuvre_seance?: MiseEnOeuvreSeance;
+  synthese_tableau_palier?: SyntheseTableau;
+}
+
+// ── V5.5 Variante ──────────────────────────────────────────────────────────
 interface Variante {
   numero: number;
   titre_sp: string;
   contexte_theme: string;
-  multimodal: {
+  fil_conducteur?: string;
+  multimodal_global?: {
     pitch_oral: string;
-    image_declenchante: {
+    image_declenchante?: {
       mots_cles_unsplash: string;
       description_pedagogique: string;
     };
-    action_kinesthesique: string;
   };
-  obstacle_epistemologique: {
-    formulation: string;
-    erreur_typique: string;
-    origine_confusion: string;
-    contraintes_pedagogiques: string[];
+  paliers: Palier[];
+  seance_synthese_finale?: {
+    titre?: string;
+    contenu?: string;
+    tableau?: SyntheseTableau;
   };
-  situation: {
-    texte: string;
-    tache_finale: string;
-  };
-  questions_differenciees: QuestionsDifferenciees;
-  simulateur_classe: SimulateurClasse;
-  mise_en_oeuvre_classe: MiseEnOeuvre;
-  auto_evaluation_enseignant: AutoEval;
+  auto_evaluation_enseignant?: AutoEval;
 }
+
 export interface SPResult {
   mode: string;
   module: string;
   sequence: string;
   savoirs_couverts: string[];
-  type_sp: string;
   duree_estimee: string;
   variantes: Variante[];
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const PHASE_COLORS = ["var(--accent)", "var(--orange)", "var(--green)", "#8b5cf6"];
-const TYPE_COLOR: Record<string, string> = {
-  didactique: "var(--accent)",
-  formative: "var(--orange)",
-  sommative: "var(--red)",
-};
+const PALIER_COLORS = ["var(--accent)", "var(--orange)", "var(--green)", "#8b5cf6", "var(--red)"];
 
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
@@ -139,6 +134,7 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
   );
 }
 
+// Custom SectionTitle component that allows dynamic color or uses standard fallback.
 function SectionTitle({ children, color = "var(--accent)" }: { children: React.ReactNode; color?: string }) {
   return (
     <div style={{
@@ -280,7 +276,7 @@ function QuestionCard({ q, levelColor }: { q: Question; levelColor: string }) {
             </div>
           )}
 
-          {/* COUPS DE POUCE — Q3 only */}
+          {/* COUPS DE POUCE */}
           {q.coups_de_pouce && (
             <div style={{ marginTop: 12 }}>
               <div style={{
@@ -494,59 +490,80 @@ function SimulateurCard({ profil, color }: { profil: SimulateurProfil; color: st
   );
 }
 
-// ── QuestionsFlat — backward compat (V5.3 flat format) ────────────────────
-function QuestionsFlat({ qd }: { qd: QuestionsDifferenciees }) {
+// ── QuestionsBlock ────────────────────────────────────────────────────────
+function QuestionsBlock({ questions }: { questions: NonNullable<Palier["questions"]> }) {
   return (
     <>
-      {/* SOCLE */}
-      <div style={{ marginBottom: 20 }}>
+      {questions.consigne_enseignant && (
         <div style={{
-          padding: "8px 14px", borderRadius: 8,
-          background: "rgba(26,158,104,0.1)", border: "1px solid rgba(26,158,104,0.25)",
-          fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 10,
+          padding: "10px 14px",
+          borderRadius: 8,
+          background: "var(--bg3)",
+          border: "1px solid var(--border)",
+          fontSize: 13,
+          color: "var(--text2)",
+          fontStyle: "italic",
+          marginBottom: 20,
         }}>
-          🟢 SOCLE COMMUN — Accessible à tous les élèves
+          📌 {questions.consigne_enseignant}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {qd?.niveau_socle?.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--green)" />)}
+      )}
+
+      {/* SOCLE */}
+      {(questions.niveau_socle?.length ?? 0) > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            padding: "8px 14px", borderRadius: 8,
+            background: "rgba(26,158,104,0.1)", border: "1px solid rgba(26,158,104,0.25)",
+            fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 10,
+          }}>
+            🟢 SOCLE COMMUN — Accessible à tous les élèves
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {questions.niveau_socle!.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--green)" />)}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* INTERMÉDIAIRE */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{
-          padding: "8px 14px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)",
-          fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 10,
-        }}>
-          ⚡ APPROFONDISSEMENT — Conflit cognitif
+      {(questions.niveau_intermediaire?.length ?? 0) > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            padding: "8px 14px", borderRadius: 8,
+            background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)",
+            fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 10,
+          }}>
+            ⚡ APPROFONDISSEMENT — Conflit cognitif
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {questions.niveau_intermediaire!.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--orange)" />)}
+          </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {qd?.niveau_intermediaire?.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--orange)" />)}
-        </div>
-      </div>
+      )}
 
       {/* DÉPASSEMENT */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{
-          padding: "8px 14px", borderRadius: 8,
-          background: "rgba(59,111,240,0.08)", border: "1px solid rgba(59,111,240,0.2)",
-          fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 10,
-        }}>
-          🔵 DÉPASSEMENT — Pour les élèves avancés
+      {(questions.niveau_depassement?.length ?? 0) > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{
+            padding: "8px 14px", borderRadius: 8,
+            background: "rgba(59,111,240,0.08)", border: "1px solid rgba(59,111,240,0.2)",
+            fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 10,
+          }}>
+            🔵 DÉPASSEMENT — Pour les élèves avancés
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {questions.niveau_depassement!.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--accent)" />)}
+          </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {qd?.niveau_depassement?.map((q, i) => <QuestionCard key={i} q={q} levelColor="var(--accent)" />)}
-        </div>
-      </div>
+      )}
 
       {/* CRITÈRES DE RÉUSSITE */}
-      {(qd?.criteres_reussite?.length ?? 0) > 0 && (
+      {(questions.criteres_reussite?.length ?? 0) > 0 && (
         <div style={{ padding: "14px 18px", borderRadius: 10, background: "var(--bg3)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text2)", marginBottom: 10 }}>
             📏 Critères de réussite
           </div>
-          {qd.criteres_reussite!.map((c, i) => (
+          {questions.criteres_reussite!.map((c, i) => (
             <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, fontSize: 13, color: "var(--text2)" }}>
               <span style={{ color: "var(--green)" }}>✓</span>
               <span>{c}</span>
@@ -558,16 +575,178 @@ function QuestionsFlat({ qd }: { qd: QuestionsDifferenciees }) {
   );
 }
 
-// ── SeanceBlock — renders one séance's 3 levels ───────────────────────────
-function SeanceBlock({ phase, index }: { phase: PhaseSeance; index: number }) {
-  const [open, setOpen] = useState(index === 0); // first séance open by default
-  const SEANCE_COLORS = ["var(--accent)", "var(--orange)", "var(--green)", "#8b5cf6", "var(--red)"];
-  const color = SEANCE_COLORS[index % SEANCE_COLORS.length];
-  const qds = phase.questions_de_la_seance;
+// ── MiseEnOeuvreBlock ──────────────────────────────────────────────────────
+function MiseEnOeuvreBlock({
+  meo,
+  synthese,
+}: {
+  meo: MiseEnOeuvreSeance;
+  synthese?: SyntheseTableau;
+}) {
+  return (
+    <>
+      {(meo.organisation || meo.duree_totale) && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          {meo.organisation && <Badge color="var(--accent2)">{meo.organisation}</Badge>}
+          {meo.duree_totale && <Badge color="var(--text2)">⏱ {meo.duree_totale}</Badge>}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {meo.phases?.map((phase, i) => {
+          const c = PHASE_COLORS[i % PHASE_COLORS.length];
+          return (
+            <div key={i} style={{
+              padding: "18px 20px",
+              borderRadius: 14,
+              background: "var(--bg3)",
+              border: "1px solid var(--border)",
+              borderLeft: `4px solid ${c}`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <span style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: `color-mix(in srgb, ${c} 15%, transparent)`,
+                  color: c,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 14, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                  border: `2px solid color-mix(in srgb, ${c} 35%, transparent)`,
+                }}>
+                  {phase.numero}
+                </span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", flex: 1 }}>
+                  {phase.nom}
+                </span>
+                <span style={{
+                  padding: "3px 10px",
+                  borderRadius: 100,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: "var(--bg)",
+                  color: "var(--text3)",
+                  border: "1px solid var(--border)",
+                  whiteSpace: "nowrap",
+                }}>
+                  {phase.duree}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                {[
+                  ["👨‍🏫 Enseignant", phase.role_enseignant],
+                  ["👨‍🎓 Élève", phase.role_eleve],
+                ].map(([label, value]) => (
+                  <div key={label} style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: "var(--bg2)",
+                    border: "1px solid var(--border)",
+                  }}>
+                    <div style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 10, fontWeight: 700,
+                      color: "var(--text3)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      marginBottom: 5,
+                    }}>
+                      {label}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.55 }}>
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: `color-mix(in srgb, ${c} 8%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${c} 25%, transparent)`,
+              }}>
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10, fontWeight: 700,
+                  color: c, textTransform: "uppercase",
+                  letterSpacing: "0.06em", marginBottom: 4,
+                }}>
+                  💬 Consigne clé
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text)", fontStyle: "italic" }}>
+                  "{phase.consigne_cle}"
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* SYNTHÈSE TABLEAU PALIER */}
+      {synthese && (
+        <div style={{
+          marginTop: 20,
+          padding: "22px 24px",
+          borderRadius: 14,
+          background: "#1F3864",
+          color: "#fff",
+        }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 11, fontWeight: 700,
+            color: "rgba(255,255,255,0.6)",
+            textTransform: "uppercase",
+            letterSpacing: "0.07em",
+            marginBottom: 14,
+          }}>
+            📝 Synthèse officielle — à écrire au tableau
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+            {synthese.titre_notion}
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 10, lineHeight: 1.6, color: "rgba(255,255,255,0.85)" }}>
+            <strong>Définition :</strong> {synthese.definition}
+          </div>
+          <div style={{
+            padding: "10px 14px",
+            borderRadius: 8,
+            background: "rgba(255,215,0,0.15)",
+            border: "1px solid rgba(255,215,0,0.3)",
+            fontSize: 13,
+            color: "#FFD700",
+            marginBottom: 10,
+            lineHeight: 1.6,
+          }}>
+            <strong>Règle essentielle :</strong> {synthese.regle_essentielle}
+          </div>
+          <div style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            background: "rgba(100,200,255,0.1)",
+            fontSize: 13,
+            fontFamily: "'JetBrains Mono', monospace",
+            color: "rgba(100,200,255,0.9)",
+            lineHeight: 1.6,
+          }}>
+            Exemple : {synthese.exemple_projet}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── PalierBlock ───────────────────────────────────────────────────────────
+function PalierBlock({ palier, index }: { palier: Palier; index: number }) {
+  const [open, setOpen] = useState(index === 0);
+  const color = PALIER_COLORS[index % PALIER_COLORS.length];
 
   return (
     <div style={{
-      borderRadius: 14,
+      borderRadius: 16,
       border: `1px solid color-mix(in srgb, ${color} 30%, var(--border))`,
       overflow: "hidden",
       marginBottom: 16,
@@ -577,7 +756,7 @@ function SeanceBlock({ phase, index }: { phase: PhaseSeance; index: number }) {
         onClick={() => setOpen(o => !o)}
         style={{
           width: "100%",
-          padding: "16px 20px",
+          padding: "18px 22px",
           background: open
             ? `color-mix(in srgb, ${color} 10%, var(--bg3))`
             : "var(--bg3)",
@@ -591,49 +770,21 @@ function SeanceBlock({ phase, index }: { phase: PhaseSeance; index: number }) {
           transition: "background 0.2s",
         }}
       >
-        {/* Séance Number Badge */}
         <span style={{
-          width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+          width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
           background: `color-mix(in srgb, ${color} 18%, transparent)`,
           border: `2px solid color-mix(in srgb, ${color} 45%, transparent)`,
           color, fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 14, fontWeight: 800,
+          fontSize: 15, fontWeight: 800,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {phase.numero_seance}
+          {palier.numero_palier}
         </span>
-
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", lineHeight: 1.3, marginBottom: 4 }}>
-            {phase.titre_seance_savoir}
+          <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)", lineHeight: 1.3 }}>
+            {palier.titre_palier}
           </div>
-          {phase.objectif_de_la_seance && (
-            <div style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>
-              🎯 {phase.objectif_de_la_seance}
-            </div>
-          )}
         </div>
-
-        {/* Question count pills */}
-        <div style={{ display: "flex", gap: 6, flexShrink: 0, marginRight: 8 }}>
-          {[
-            { count: qds?.niveau_socle?.length, color: "var(--green)", label: "🟢" },
-            { count: qds?.niveau_intermediaire?.length, color: "var(--red)", label: "⚡" },
-            { count: qds?.niveau_depassement?.length, color: "var(--accent)", label: "🔵" },
-          ].map(({ count, color: c, label }) =>
-            count ? (
-              <span key={label} style={{
-                padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 700,
-                fontFamily: "'JetBrains Mono', monospace",
-                background: `color-mix(in srgb, ${c} 14%, transparent)`,
-                color: c, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`,
-              }}>
-                {label} {count}
-              </span>
-            ) : null
-          )}
-        </div>
-
         <span style={{ color: "var(--text3)", fontSize: 13, flexShrink: 0 }}>
           {open ? "▲" : "▼"}
         </span>
@@ -641,106 +792,146 @@ function SeanceBlock({ phase, index }: { phase: PhaseSeance; index: number }) {
 
       {/* ── Accordion Body ── */}
       {open && (
-        <div style={{ padding: "20px 20px 16px" }}>
+        <div style={{ padding: "24px 22px", display: "flex", flexDirection: "column", gap: 24 }}>
 
-          {/* SOCLE */}
-          {(qds?.niveau_socle?.length ?? 0) > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{
-                padding: "8px 14px", borderRadius: 8,
-                background: "rgba(26,158,104,0.1)", border: "1px solid rgba(26,158,104,0.25)",
-                fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 10,
-                display: "flex", alignItems: "center", gap: 8,
-              }}>
-                🟢 SOCLE COMMUN — Accessible à tous les élèves
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {qds.niveau_socle.map((q, i) => (
-                  <QuestionCard key={i} q={q} levelColor="var(--green)" />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* CONFLIT COGNITIF */}
-          {(qds?.niveau_intermediaire?.length ?? 0) > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{
-                padding: "8px 14px", borderRadius: 8,
-                background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)",
-                fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 10,
-              }}>
-                ⚡ CONFLIT COGNITIF — Approfondissement
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {qds.niveau_intermediaire.map((q, i) => (
-                  <QuestionCard key={i} q={q} levelColor="var(--orange)" />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* INSTITUTIONNALISATION / DÉPASSEMENT */}
-          {(qds?.niveau_depassement?.length ?? 0) > 0 && (
+          {/* Action kinesthésique */}
+          {palier.action_kinesthesique && (
             <div>
+              <SectionTitle color="var(--green)">🖱️ Action kinesthésique</SectionTitle>
               <div style={{
-                padding: "8px 14px", borderRadius: 8,
-                background: "rgba(59,111,240,0.08)", border: "1px solid rgba(59,111,240,0.2)",
-                fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 10,
+                padding: "12px 16px",
+                borderRadius: 10,
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.25)",
+                fontSize: 13,
+                color: "var(--text)",
+                lineHeight: 1.6,
               }}>
-                🔵 INSTITUTIONNALISATION — Pour les élèves avancés
+                {palier.action_kinesthesique}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {qds.niveau_depassement.map((q, i) => (
-                  <QuestionCard key={i} q={q} levelColor="var(--accent)" />
-                ))}
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6, fontStyle: "italic" }}>
+                Donnez cette consigne dès le début de l'investigation
               </div>
+            </div>
+          )}
+
+          {/* Obstacle épistémologique */}
+          {palier.obstacle_epistemologique && (
+            <div style={{
+              padding: "18px 20px",
+              borderRadius: 14,
+              borderLeft: "4px solid var(--orange)",
+              background: "var(--bg3)",
+              border: "1px solid var(--border)",
+            }}>
+              <SectionTitle color="var(--orange)">⚠️ Obstacle épistémologique</SectionTitle>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>
+                {palier.obstacle_epistemologique.formulation}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, color: "var(--text2)" }}>
+                  <strong>Erreur typique :</strong> {palier.obstacle_epistemologique.erreur_typique}
+                </div>
+                {palier.obstacle_epistemologique.origine_confusion && (
+                  <div style={{ fontSize: 13, color: "var(--text2)" }}>
+                    <strong>Origine :</strong> {palier.obstacle_epistemologique.origine_confusion}
+                  </div>
+                )}
+              </div>
+              {(palier.obstacle_epistemologique.contraintes_pedagogiques?.length ?? 0) > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {palier.obstacle_epistemologique.contraintes_pedagogiques!.map((c, i) => (
+                    <span key={i} style={{
+                      padding: "4px 12px",
+                      borderRadius: 100,
+                      fontSize: 12,
+                      background: "rgba(245,158,11,0.1)",
+                      color: "var(--orange)",
+                      border: "1px solid rgba(245,158,11,0.3)",
+                    }}>
+                      🔒 {c}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Situation partielle */}
+          {palier.situation_partielle && (
+            <div>
+              <SectionTitle>📋 Situation partielle</SectionTitle>
+              <p style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.8, marginBottom: 14 }}>
+                {palier.situation_partielle.texte}
+              </p>
+              <div style={{
+                padding: "12px 16px",
+                borderRadius: 10,
+                background: "var(--blue-bg)",
+                border: "1px solid rgba(59,111,240,0.25)",
+                fontSize: 13,
+                color: "var(--text)",
+              }}>
+                <strong style={{ color: "var(--accent)" }}>🎯 Tâche finale :</strong> {palier.situation_partielle.tache_finale}
+              </div>
+            </div>
+          )}
+
+          {/* Questions */}
+          {palier.questions && (
+            <div>
+              <SectionTitle>❓ Questions de guidage différenciées</SectionTitle>
+              <QuestionsBlock questions={palier.questions} />
+            </div>
+          )}
+
+          {/* Simulateur de classe */}
+          {palier.simulateur_classe && (
+            <div>
+              <SectionTitle>🎭 Simulateur de classe</SectionTitle>
+              <p style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+                {palier.simulateur_classe.contexte_simulateur}
+              </p>
+              {palier.simulateur_classe.question_cible && (
+                <div style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  background: "var(--bg3)",
+                  border: "1px solid var(--border)",
+                  fontSize: 13,
+                  color: "var(--text2)",
+                  marginBottom: 16,
+                  fontStyle: "italic",
+                }}>
+                  Question ciblée : <strong>{palier.simulateur_classe.question_cible}</strong>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {palier.simulateur_classe.eleve_difficulte && (
+                  <SimulateurCard profil={palier.simulateur_classe.eleve_difficulte} color="var(--red)" />
+                )}
+                {palier.simulateur_classe.eleve_moyen && (
+                  <SimulateurCard profil={palier.simulateur_classe.eleve_moyen} color="var(--orange)" />
+                )}
+                {palier.simulateur_classe.eleve_avance && (
+                  <SimulateurCard profil={palier.simulateur_classe.eleve_avance} color="var(--green)" />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Mise en œuvre séance */}
+          {palier.mise_en_oeuvre_seance && (
+            <div>
+              <SectionTitle>🏫 Mise en œuvre — séance</SectionTitle>
+              <MiseEnOeuvreBlock
+                meo={palier.mise_en_oeuvre_seance}
+                synthese={palier.synthese_tableau_palier}
+              />
             </div>
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── PhasesSeancesDisplay — new V5.4 format ─────────────────────────────────
-function PhasesSeancesDisplay({ phases }: { phases: PhaseSeance[] }) {
-  return (
-    <div>
-      {/* Progress timeline header */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        marginBottom: 20,
-        padding: "10px 14px",
-        borderRadius: 10,
-        background: "var(--bg3)",
-        border: "1px solid var(--border)",
-        overflowX: "auto",
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.07em", whiteSpace: "nowrap" }}>
-          📅 Progression
-        </span>
-        {phases.map((p, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {i > 0 && <span style={{ color: "var(--border)", fontSize: 16 }}>›</span>}
-            <span style={{
-              padding: "3px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
-              fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap",
-              background: "var(--bg2)", color: "var(--text2)",
-              border: "1px solid var(--border)",
-            }}>
-              S{p.numero_seance}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Séances accordion list */}
-      {phases.map((phase, i) => (
-        <SeanceBlock key={phase.numero_seance} phase={phase} index={i} />
-      ))}
     </div>
   );
 }
@@ -759,7 +950,6 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
   }
 
   const variante = result.variantes[activeTab];
-  const typeColor = TYPE_COLOR[result.type_sp] || "var(--accent)";
   const checkedCount = Object.values(checklist).filter(Boolean).length;
   const totalChecklist = variante?.auto_evaluation_enseignant?.checklist?.length || 0;
 
@@ -769,11 +959,6 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
       {/* ── HEADER ──────────────────────────────────────────── */}
       <Card>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-          <Badge color={typeColor}>
-            {result.type_sp === "didactique" ? "📚 SP Didactique"
-              : result.type_sp === "formative" ? "🔍 Formative"
-                : "📋 Sommative"}
-          </Badge>
           <Badge color="var(--accent)">{result.module?.split("—")[0]?.trim()}</Badge>
           {result.duree_estimee && <Badge color="var(--text2)">⏱ {result.duree_estimee}</Badge>}
         </div>
@@ -821,302 +1006,130 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
         </div>
       )}
 
-      {/* ── SECTION A : MULTIMODAL ──────────────────────────── */}
-      <Card>
-        <SectionTitle>🎙️ Lancement multimodal</SectionTitle>
+      {/* ── SECTION A : MULTIMODAL GLOBAL ──────────────────── */}
+      {variante.multimodal_global && (
+        <Card>
+          <SectionTitle>🎙️ Lancement multimodal global</SectionTitle>
 
-        {/* Pitch oral */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 8 }}>
-            🎤 Pitch oral — à lire à voix haute avant de distribuer la feuille
-          </div>
-          <div style={{
-            padding: "14px 18px",
-            borderRadius: 10,
-            background: "rgba(245,158,11,0.08)",
-            border: "1px solid rgba(245,158,11,0.25)",
-            fontSize: 14,
-            color: "var(--text)",
-            fontStyle: "italic",
-            lineHeight: 1.7,
-          }}>
-            "{variante.multimodal?.pitch_oral}"
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6, fontStyle: "italic" }}>
-            Lisez ce texte de manière théâtrale pour créer la curiosité
-          </div>
-        </div>
-
-        {/* Image déclenchante */}
-        {variante.multimodal?.image_declenchante?.mots_cles_unsplash && (
+          {/* Pitch oral */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 8 }}>
-              🖼️ Image déclenchante
+              🎤 Pitch oral — à lire à voix haute avant de distribuer la feuille
             </div>
-            <img
-              src={`https://source.unsplash.com/800x300/?${encodeURIComponent(variante.multimodal.image_declenchante.mots_cles_unsplash)}`}
-              alt={variante.multimodal.image_declenchante.mots_cles_unsplash}
-              style={{
-                width: "100%",
-                height: 220,
-                objectFit: "cover",
-                borderRadius: 10,
-                display: "block",
-                marginBottom: 8,
-              }}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
-            <div style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>
-              {variante.multimodal.image_declenchante.description_pedagogique}
+            <div style={{
+              padding: "14px 18px",
+              borderRadius: 10,
+              background: "rgba(245,158,11,0.08)",
+              border: "1px solid rgba(245,158,11,0.25)",
+              fontSize: 14,
+              color: "var(--text)",
+              fontStyle: "italic",
+              lineHeight: 1.7,
+            }}>
+              "{variante.multimodal_global.pitch_oral}"
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6, fontStyle: "italic" }}>
+              Lisez ce texte de manière théâtrale pour créer la curiosité
             </div>
           </div>
-        )}
 
-        {/* Action kinesthésique */}
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 8 }}>
-            🖱️ Action kinesthésique
-          </div>
-          <div style={{
-            padding: "12px 16px",
-            borderRadius: 10,
-            background: "rgba(34,197,94,0.08)",
-            border: "1px solid rgba(34,197,94,0.25)",
-            fontSize: 13,
-            color: "var(--text)",
-            lineHeight: 1.6,
-          }}>
-            {variante.multimodal?.action_kinesthesique}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6, fontStyle: "italic" }}>
-            Donnez cette consigne dès le début de l'investigation
-          </div>
-        </div>
-      </Card>
-
-      {/* ── SECTION B : OBSTACLE ────────────────────────────── */}
-      <Card style={{ borderLeft: "4px solid var(--orange)" }}>
-        <SectionTitle color="var(--orange)">⚠️ Obstacle épistémologique identifié</SectionTitle>
-        <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>
-          {variante.obstacle_epistemologique?.formulation}
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-          <div style={{ fontSize: 13, color: "var(--text2)" }}>
-            <strong>Erreur typique :</strong> {variante.obstacle_epistemologique?.erreur_typique}
-          </div>
-          {variante.obstacle_epistemologique?.origine_confusion && (
-            <div style={{ fontSize: 13, color: "var(--text2)" }}>
-              <strong>Origine :</strong> {variante.obstacle_epistemologique.origine_confusion}
+          {/* Image déclenchante */}
+          {variante.multimodal_global.image_declenchante?.mots_cles_unsplash && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 8 }}>
+                🖼️ Image déclenchante
+              </div>
+              <img
+                src={`https://source.unsplash.com/800x300/?${encodeURIComponent(variante.multimodal_global.image_declenchante.mots_cles_unsplash)}`}
+                alt={variante.multimodal_global.image_declenchante.mots_cles_unsplash}
+                style={{
+                  width: "100%",
+                  height: 220,
+                  objectFit: "cover",
+                  borderRadius: 10,
+                  display: "block",
+                  marginBottom: 8,
+                }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+              <div style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>
+                {variante.multimodal_global.image_declenchante.description_pedagogique}
+              </div>
             </div>
           )}
-        </div>
-        {variante.obstacle_epistemologique?.contraintes_pedagogiques?.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {variante.obstacle_epistemologique.contraintes_pedagogiques.map((c, i) => (
-              <span key={i} style={{
-                padding: "4px 12px",
-                borderRadius: 100,
-                fontSize: 12,
-                background: "rgba(245,158,11,0.1)",
-                color: "var(--orange)",
-                border: "1px solid rgba(245,158,11,0.3)",
-              }}>
-                🔒 {c}
-              </span>
+        </Card>
+      )}
+
+      {/* ── SECTION B : FIL CONDUCTEUR ──────────────────────── */}
+      {variante.fil_conducteur && (
+        <Card style={{ borderLeft: "4px solid var(--accent)" }}>
+          <SectionTitle>🧵 Fil conducteur de la séquence</SectionTitle>
+          <p style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.8 }}>
+            {variante.fil_conducteur}
+          </p>
+        </Card>
+      )}
+
+      {/* ── SECTION C : PALIERS ─────────────────────────────── */}
+      {(variante.paliers?.length ?? 0) > 0 && (
+        <Card>
+          <SectionTitle>📐 Paliers d'apprentissage</SectionTitle>
+
+          {/* Palier progress bar */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 20,
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "var(--bg3)",
+            border: "1px solid var(--border)",
+            overflowX: "auto",
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.07em", whiteSpace: "nowrap" }}>
+              📅 Progression
+            </span>
+            {variante.paliers.map((p, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {i > 0 && <span style={{ color: "var(--border)", fontSize: 16 }}>›</span>}
+                <span style={{
+                  padding: "3px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                  fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap",
+                  background: `color-mix(in srgb, ${PALIER_COLORS[i % PALIER_COLORS.length]} 14%, transparent)`,
+                  color: PALIER_COLORS[i % PALIER_COLORS.length],
+                  border: `1px solid color-mix(in srgb, ${PALIER_COLORS[i % PALIER_COLORS.length]} 30%, transparent)`,
+                }}>
+                  P{p.numero_palier}
+                </span>
+              </div>
             ))}
           </div>
-        )}
-      </Card>
 
-      {/* ── SECTION C : SITUATION ───────────────────────────── */}
-      <Card>
-        <SectionTitle>📋 La situation-problème</SectionTitle>
-        <p style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.8, marginBottom: 14 }}>
-          {variante.situation?.texte}
-        </p>
-        <div style={{
-          padding: "12px 16px",
-          borderRadius: 10,
-          background: "var(--blue-bg)",
-          border: "1px solid rgba(59,111,240,0.25)",
-          fontSize: 13,
-          color: "var(--text)",
-        }}>
-          <strong style={{ color: "var(--accent)" }}>🎯 Tâche finale :</strong> {variante.situation?.tache_finale}
-        </div>
-      </Card>
+          {variante.paliers.map((palier, i) => (
+            <PalierBlock key={palier.numero_palier} palier={palier} index={i} />
+          ))}
+        </Card>
+      )}
 
-      {/* ── SECTION D : QUESTIONS ───────────────────────────── */}
-      <Card>
-        <SectionTitle>❓ Questions de guidage différenciées</SectionTitle>
-
-        {variante.questions_differenciees?.consigne_enseignant && (
-          <div style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            background: "var(--bg3)",
-            border: "1px solid var(--border)",
-            fontSize: 13,
-            color: "var(--text2)",
-            fontStyle: "italic",
-            marginBottom: 20,
-          }}>
-            📌 {variante.questions_differenciees.consigne_enseignant}
-          </div>
-        )}
-
-        {/* ── NEW FORMAT: phases_seances ─────────────────────── */}
-        {variante.questions_differenciees?.phases_seances?.length
-          ? <PhasesSeancesDisplay phases={variante.questions_differenciees.phases_seances} />
-          : <QuestionsFlat qd={variante.questions_differenciees} />
-        }
-      </Card>
-
-      {/* ── SECTION E : SIMULATEUR ──────────────────────────── */}
-      <Card>
-        <SectionTitle>🎭 Simulateur de classe — Phase de confrontation</SectionTitle>
-        <p style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
-          {variante.simulateur_classe?.contexte_simulateur}
-        </p>
-        {variante.simulateur_classe?.question_cible && (
-          <div style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            background: "var(--bg3)",
-            border: "1px solid var(--border)",
-            fontSize: 13,
-            color: "var(--text2)",
-            marginBottom: 16,
-            fontStyle: "italic",
-          }}>
-            Question ciblée : <strong>{variante.simulateur_classe.question_cible}</strong>
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {variante.simulateur_classe?.eleve_difficulte && (
-            <SimulateurCard profil={variante.simulateur_classe.eleve_difficulte} color="var(--red)" />
-          )}
-          {variante.simulateur_classe?.eleve_moyen && (
-            <SimulateurCard profil={variante.simulateur_classe.eleve_moyen} color="var(--orange)" />
-          )}
-          {variante.simulateur_classe?.eleve_avance && (
-            <SimulateurCard profil={variante.simulateur_classe.eleve_avance} color="var(--green)" />
-          )}
-        </div>
-      </Card>
-
-      {/* ── SECTION F : MISE EN ŒUVRE ───────────────────────── */}
-      {variante.mise_en_oeuvre_classe && (
+      {/* ── SECTION D : SYNTHÈSE FINALE ─────────────────────── */}
+      {variante.seance_synthese_finale && (
         <Card>
-          <SectionTitle>🏫 Mise en œuvre en classe</SectionTitle>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-            {variante.mise_en_oeuvre_classe.organisation && (
-              <Badge color="var(--accent2)">{variante.mise_en_oeuvre_classe.organisation}</Badge>
-            )}
-            {variante.mise_en_oeuvre_classe.duree_totale && (
-              <Badge color="var(--text2)">⏱ {variante.mise_en_oeuvre_classe.duree_totale}</Badge>
-            )}
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {variante.mise_en_oeuvre_classe.phases?.map((phase, i) => {
-              const c = PHASE_COLORS[i % PHASE_COLORS.length];
-              return (
-                <div key={i} style={{
-                  padding: "18px 20px",
-                  borderRadius: 14,
-                  background: "var(--bg3)",
-                  border: "1px solid var(--border)",
-                  borderLeft: `4px solid ${c}`,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                    <span style={{
-                      width: 32, height: 32, borderRadius: "50%",
-                      background: `color-mix(in srgb, ${c} 15%, transparent)`,
-                      color: c,
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 14, fontWeight: 700,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0,
-                      border: `2px solid color-mix(in srgb, ${c} 35%, transparent)`,
-                    }}>
-                      {phase.numero}
-                    </span>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", flex: 1 }}>
-                      {phase.nom}
-                    </span>
-                    <span style={{
-                      padding: "3px 10px",
-                      borderRadius: 100,
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      background: "var(--bg)",
-                      color: "var(--text3)",
-                      border: "1px solid var(--border)",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {phase.duree}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                    {[
-                      ["👨‍🏫 Enseignant", phase.role_enseignant],
-                      ["👨‍🎓 Élève", phase.role_eleve],
-                    ].map(([label, value]) => (
-                      <div key={label} style={{
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        background: "var(--bg2)",
-                        border: "1px solid var(--border)",
-                      }}>
-                        <div style={{
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontSize: 10, fontWeight: 700,
-                          color: "var(--text3)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.06em",
-                          marginBottom: 5,
-                        }}>
-                          {label}
-                        </div>
-                        <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.55 }}>
-                          {value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{
-                    padding: "10px 14px",
-                    borderRadius: 10,
-                    background: `color-mix(in srgb, ${c} 8%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${c} 25%, transparent)`,
-                  }}>
-                    <div style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 10, fontWeight: 700,
-                      color: c, textTransform: "uppercase",
-                      letterSpacing: "0.06em", marginBottom: 4,
-                    }}>
-                      💬 Consigne clé
-                    </div>
-                    <div style={{ fontSize: 13, color: "var(--text)", fontStyle: "italic" }}>
-                      "{phase.consigne_cle}"
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* SYNTHÈSE TABLEAU */}
-          {variante.mise_en_oeuvre_classe.synthese_tableau && (
+          <SectionTitle color="#8b5cf6">🏁 Synthèse finale de séquence</SectionTitle>
+          {variante.seance_synthese_finale.titre && (
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "var(--text)", marginBottom: 12 }}>
+              {variante.seance_synthese_finale.titre}
+            </h3>
+          )}
+          {variante.seance_synthese_finale.contenu && (
+            <p style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.8, marginBottom: 16 }}>
+              {variante.seance_synthese_finale.contenu}
+            </p>
+          )}
+          {variante.seance_synthese_finale.tableau && (
             <div style={{
-              marginTop: 20,
               padding: "22px 24px",
               borderRadius: 14,
               background: "#1F3864",
@@ -1133,10 +1146,10 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
                 📝 Synthèse officielle — à écrire au tableau
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-                {variante.mise_en_oeuvre_classe.synthese_tableau.titre_notion}
+                {variante.seance_synthese_finale.tableau.titre_notion}
               </div>
               <div style={{ fontSize: 14, marginBottom: 10, lineHeight: 1.6, color: "rgba(255,255,255,0.85)" }}>
-                <strong>Définition :</strong> {variante.mise_en_oeuvre_classe.synthese_tableau.definition}
+                <strong>Définition :</strong> {variante.seance_synthese_finale.tableau.definition}
               </div>
               <div style={{
                 padding: "10px 14px",
@@ -1148,7 +1161,7 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
                 marginBottom: 10,
                 lineHeight: 1.6,
               }}>
-                <strong>Règle essentielle :</strong> {variante.mise_en_oeuvre_classe.synthese_tableau.regle_essentielle}
+                <strong>Règle essentielle :</strong> {variante.seance_synthese_finale.tableau.regle_essentielle}
               </div>
               <div style={{
                 padding: "8px 12px",
@@ -1159,14 +1172,14 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
                 color: "rgba(100,200,255,0.9)",
                 lineHeight: 1.6,
               }}>
-                Exemple : {variante.mise_en_oeuvre_classe.synthese_tableau.exemple_projet}
+                Exemple : {variante.seance_synthese_finale.tableau.exemple_projet}
               </div>
             </div>
           )}
         </Card>
       )}
 
-      {/* ── SECTION G : AUTO-ÉVALUATION ─────────────────────── */}
+      {/* ── SECTION E : AUTO-ÉVALUATION ─────────────────────── */}
       {variante.auto_evaluation_enseignant && (
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -1220,7 +1233,7 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
             ))}
           </div>
 
-          {variante.auto_evaluation_enseignant.indicateurs_reussite?.length > 0 && (
+          {(variante.auto_evaluation_enseignant.indicateurs_reussite?.length ?? 0) > 0 && (
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>
                 Indicateurs de réussite attendus

@@ -106,7 +106,7 @@ export default function SPEvaluationDisplay({ result, situationText }: SPEvaluat
         <div style={{
           width: 90, height: 90, borderRadius: "50%",
           border: `3px solid ${noteColor}`, display: "flex",
-          flexDirection: "column", alignItems: "center", justifyContext: "center",
+          flexDirection: "column", alignItems: "center",
           justifyContent: "center", flexShrink: 0,
           background: `color-mix(in srgb, ${noteColor} 10%, transparent)`,
         }}>

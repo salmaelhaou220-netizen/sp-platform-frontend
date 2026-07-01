@@ -139,7 +139,7 @@ export default function GenerateSP({ user }: { user: any }) {
             await supabase.from("situations_problemes").insert({
               user_id: user.id,
               titre: firstVariante?.titre_sp || spData.sequence || "SP sans titre",
-              type_sp: spData.type_sp || "didactique",
+              type_sp: "didactique",
               module: spData.module || selectedModule,
               contenu_vise: spData.sequence || selectedSequence,
               profils_vark: ["didactique"],
