@@ -60,8 +60,10 @@ interface AutoEval {
 
 // ── V5.5 Palier ────────────────────────────────────────────────────────────
 interface Palier {
-  numero_palier: number;
-  titre_palier: string;
+  numero: number;
+  notion: string;
+  duree_seance_recommandee?: string;
+  reprend_du_palier_precedent?: string | null;
   action_kinesthesique?: string;
   obstacle_epistemologique?: {
     formulation: string;
@@ -70,8 +72,8 @@ interface Palier {
     contraintes_pedagogiques?: string[];
   };
   situation_partielle?: {
-    texte: string;
-    tache_finale: string;
+    texte_complement: string;
+    tache_partielle: string;
   };
   questions?: {
     consigne_enseignant?: string;
@@ -92,17 +94,19 @@ interface Variante {
   contexte_theme: string;
   fil_conducteur?: string;
   multimodal_global?: {
-    pitch_oral: string;
+    pitch_oral_ouverture: string;
     image_declenchante?: {
       mots_cles_unsplash: string;
       description_pedagogique: string;
+      ce_que_limage_ne_doit_pas_montrer?: string;
     };
   };
   paliers: Palier[];
   seance_synthese_finale?: {
-    titre?: string;
-    contenu?: string;
-    tableau?: SyntheseTableau;
+    a_inclure?: boolean | string;
+    question_transfert_global?: string;
+    objectif?: string;
+    lien_entre_notions?: string;
   };
   auto_evaluation_enseignant?: AutoEval;
 }
@@ -778,12 +782,17 @@ function PalierBlock({ palier, index }: { palier: Palier; index: number }) {
           fontSize: 15, fontWeight: 800,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {palier.numero_palier}
+          {palier.numero}
         </span>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)", lineHeight: 1.3 }}>
-            {palier.titre_palier}
+            {palier.notion}
           </div>
+          {palier.duree_seance_recommandee && (
+            <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
+              ⏱ {palier.duree_seance_recommandee}
+            </div>
+          )}
         </div>
         <span style={{ color: "var(--text3)", fontSize: 13, flexShrink: 0 }}>
           {open ? "▲" : "▼"}
@@ -793,6 +802,21 @@ function PalierBlock({ palier, index }: { palier: Palier; index: number }) {
       {/* ── Accordion Body ── */}
       {open && (
         <div style={{ padding: "24px 22px", display: "flex", flexDirection: "column", gap: 24 }}>
+
+          {/* Reprend du palier précédent */}
+          {palier.reprend_du_palier_precedent && (
+            <div style={{
+              padding: "10px 14px",
+              borderRadius: 8,
+              background: "var(--bg3)",
+              border: "1px solid var(--border)",
+              fontSize: 12,
+              color: "var(--text2)",
+              fontStyle: "italic",
+            }}>
+              🔗 Reprend du palier précédent : {palier.reprend_du_palier_precedent}
+            </div>
+          )}
 
           {/* Action kinesthésique */}
           {palier.action_kinesthesique && (
@@ -862,7 +886,7 @@ function PalierBlock({ palier, index }: { palier: Palier; index: number }) {
             <div>
               <SectionTitle>📋 Situation partielle</SectionTitle>
               <p style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.8, marginBottom: 14 }}>
-                {palier.situation_partielle.texte}
+                {palier.situation_partielle.texte_complement}
               </p>
               <div style={{
                 padding: "12px 16px",
@@ -872,7 +896,7 @@ function PalierBlock({ palier, index }: { palier: Palier; index: number }) {
                 fontSize: 13,
                 color: "var(--text)",
               }}>
-                <strong style={{ color: "var(--accent)" }}>🎯 Tâche finale :</strong> {palier.situation_partielle.tache_finale}
+                <strong style={{ color: "var(--accent)" }}>🎯 Tâche :</strong> {palier.situation_partielle.tache_partielle}
               </div>
             </div>
           )}
@@ -953,6 +977,12 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
   const checkedCount = Object.values(checklist).filter(Boolean).length;
   const totalChecklist = variante?.auto_evaluation_enseignant?.checklist?.length || 0;
 
+  // "a_inclure" peut arriver du backend comme string ("true"/"false") ou bool.
+  const synthese = variante.seance_synthese_finale;
+  const syntheseAInclure =
+    synthese &&
+    (synthese.a_inclure === true || synthese.a_inclure === "true");
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -1026,7 +1056,7 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
               fontStyle: "italic",
               lineHeight: 1.7,
             }}>
-              "{variante.multimodal_global.pitch_oral}"
+              "{variante.multimodal_global.pitch_oral_ouverture}"
             </div>
             <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6, fontStyle: "italic" }}>
               Lisez ce texte de manière théâtrale pour créer la curiosité
@@ -1102,78 +1132,55 @@ export default function SPResultDisplay({ result }: { result: SPResult }) {
                   color: PALIER_COLORS[i % PALIER_COLORS.length],
                   border: `1px solid color-mix(in srgb, ${PALIER_COLORS[i % PALIER_COLORS.length]} 30%, transparent)`,
                 }}>
-                  P{p.numero_palier}
+                  P{p.numero}
                 </span>
               </div>
             ))}
           </div>
 
           {variante.paliers.map((palier, i) => (
-            <PalierBlock key={palier.numero_palier} palier={palier} index={i} />
+            <PalierBlock key={palier.numero} palier={palier} index={i} />
           ))}
         </Card>
       )}
 
       {/* ── SECTION D : SYNTHÈSE FINALE ─────────────────────── */}
-      {variante.seance_synthese_finale && (
+      {syntheseAInclure && synthese && (
         <Card>
           <SectionTitle color="#8b5cf6">🏁 Synthèse finale de séquence</SectionTitle>
-          {variante.seance_synthese_finale.titre && (
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "var(--text)", marginBottom: 12 }}>
-              {variante.seance_synthese_finale.titre}
-            </h3>
-          )}
-          {variante.seance_synthese_finale.contenu && (
-            <p style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.8, marginBottom: 16 }}>
-              {variante.seance_synthese_finale.contenu}
+
+          {synthese.objectif && (
+            <p style={{ fontSize: 13, color: "var(--text3)", fontStyle: "italic", marginBottom: 14 }}>
+              🎯 {synthese.objectif}
             </p>
           )}
-          {variante.seance_synthese_finale.tableau && (
+
+          {synthese.question_transfert_global && (
             <div style={{
-              padding: "22px 24px",
-              borderRadius: 14,
-              background: "#1F3864",
-              color: "#fff",
+              padding: "14px 18px",
+              borderRadius: 10,
+              background: "rgba(139,92,246,0.08)",
+              border: "1px solid rgba(139,92,246,0.25)",
+              fontSize: 14,
+              color: "var(--text)",
+              lineHeight: 1.7,
+              marginBottom: 14,
             }}>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 11, fontWeight: 700,
-                color: "rgba(255,255,255,0.6)",
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-                marginBottom: 14,
-              }}>
-                📝 Synthèse officielle — à écrire au tableau
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-                {variante.seance_synthese_finale.tableau.titre_notion}
-              </div>
-              <div style={{ fontSize: 14, marginBottom: 10, lineHeight: 1.6, color: "rgba(255,255,255,0.85)" }}>
-                <strong>Définition :</strong> {variante.seance_synthese_finale.tableau.definition}
-              </div>
-              <div style={{
-                padding: "10px 14px",
-                borderRadius: 8,
-                background: "rgba(255,215,0,0.15)",
-                border: "1px solid rgba(255,215,0,0.3)",
-                fontSize: 13,
-                color: "#FFD700",
-                marginBottom: 10,
-                lineHeight: 1.6,
-              }}>
-                <strong>Règle essentielle :</strong> {variante.seance_synthese_finale.tableau.regle_essentielle}
-              </div>
-              <div style={{
-                padding: "8px 12px",
-                borderRadius: 8,
-                background: "rgba(100,200,255,0.1)",
-                fontSize: 13,
-                fontFamily: "'JetBrains Mono', monospace",
-                color: "rgba(100,200,255,0.9)",
-                lineHeight: 1.6,
-              }}>
-                Exemple : {variante.seance_synthese_finale.tableau.exemple_projet}
-              </div>
+              <strong style={{ color: "#8b5cf6" }}>Question de transfert global :</strong> {synthese.question_transfert_global}
+            </div>
+          )}
+
+          {synthese.lien_entre_notions && (
+            <div style={{
+              padding: "12px 16px",
+              borderRadius: 10,
+              background: "var(--bg3)",
+              border: "1px solid var(--border)",
+              fontSize: 13,
+              color: "var(--text2)",
+              lineHeight: 1.6,
+            }}>
+              🔗 {synthese.lien_entre_notions}
             </div>
           )}
         </Card>
