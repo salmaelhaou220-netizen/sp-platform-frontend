@@ -1,33 +1,23 @@
 import { useState, useEffect } from "react";
 import SPResultDisplay, { type SPResult } from "../components/SPResultDisplay";
-import SPEvaluationDisplay from "../components/SPEvaluationDisplay";
 import { supabase } from "../lib/supabase";
 import { exportAsPDF, exportAsWord } from "../utils/exportSP";
 
+// ── V5.5 : entrée d'historique alignée sur les colonnes réelles de la
+// table "situations_problemes" (id, user_id, mode, module, sequence,
+// savoirs_couverts jsonb, duree_estimee text, contenu_json jsonb,
+// created_at). Les anciens champs "titre", "type_sp", "contenu_vise",
+// "profils_vark", "data" n'existent plus dans le schéma V5.5.
 interface SPEntry {
   id: string;
-  titre: string;
-  type_sp: string;
+  mode: string;
   module: string;
-  contenu_vise: string;
-  profils: string[];
+  sequence: string;
+  savoirs_couverts: string[];
+  duree_estimee: string;
   date: string;
-  data: any;
+  data: SPResult; // = contenu_json, l'arborescence complète (variantes, paliers...)
 }
-
-const TYPE_COLOR: Record<string, string> = {
-  didactique: "var(--accent)",
-  formative: "var(--orange)",
-  sommative: "var(--red)",
-  evaluation: "var(--green)",
-};
-const TYPE_LABEL: Record<string, string> = {
-  didactique: "📚 Didactique",
-  formative: "🔍 Formative",
-  sommative: "📋 Sommative",
-  evaluation: "📝 Évaluation",
-};
-const PROFIL_LABEL: Record<string, string> = { V: "👁 V", A: "👂 A", R: "📖 R", K: "🤸 K" };
 
 // ── Detail Modal ──────────────────────────────────────────────────────────
 function DetailModal({ entry, onClose }: { entry: SPEntry; onClose: () => void }) {
@@ -62,29 +52,25 @@ function DetailModal({ entry, onClose }: { entry: SPEntry; onClose: () => void }
           position: "sticky", top: 0, background: "var(--bg)", borderRadius: "20px 20px 0 0", zIndex: 10,
         }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            {entry.type_sp === "evaluation" ? "📝 Détail Évaluation" : "📄 Détail SP"}
+            📄 Détail SP
           </span>
           <div style={{ display: "flex", gap: 8 }}>
-            {entry.type_sp !== "evaluation" && (
-              <>
-                <button
-                  onClick={() => exportAsPDF(entry.data)}
-                  style={{
-                    padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
-                    border: "1px solid var(--red)", background: "var(--bg3)",
-                    color: "var(--red)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
-                  }}
-                >🖨️ PDF</button>
-                <button
-                  onClick={() => exportAsWord(entry.data)}
-                  style={{
-                    padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
-                    border: "1px solid var(--accent)", background: "var(--bg3)",
-                    color: "var(--accent)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
-                  }}
-                >📄 Word</button>
-              </>
-            )}
+            <button
+              onClick={() => exportAsPDF(entry.data)}
+              style={{
+                padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                border: "1px solid var(--red)", background: "var(--bg3)",
+                color: "var(--red)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
+              }}
+            >🖨️ PDF</button>
+            <button
+              onClick={() => exportAsWord(entry.data)}
+              style={{
+                padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                border: "1px solid var(--accent)", background: "var(--bg3)",
+                color: "var(--accent)", cursor: "pointer", fontFamily: "'Sora', sans-serif",
+              }}
+            >📄 Word</button>
             <button
               onClick={onClose}
               style={{
@@ -97,14 +83,7 @@ function DetailModal({ entry, onClose }: { entry: SPEntry; onClose: () => void }
         </div>
         {/* Modal Content */}
         <div style={{ padding: "24px" }}>
-          {entry.type_sp === "evaluation" ? (
-            <SPEvaluationDisplay
-              result={entry.data.evaluation}
-              situationText={entry.data.situation_probleme}
-            />
-          ) : (
-            <SPResultDisplay result={entry.data} />
-          )}
+          <SPResultDisplay result={entry.data} />
         </div>
       </div>
     </div>
@@ -116,7 +95,6 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
   const [history, setHistory] = useState<SPEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterModule, setFilterModule] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "generated" | "evaluated">("all");
   const [modalEntry, setModalEntry] = useState<SPEntry | null>(null);
 
   useEffect(() => {
@@ -135,13 +113,13 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
         } else if (data) {
           const mapped: SPEntry[] = data.map((dbRow: any) => ({
             id: dbRow.id,
-            titre: dbRow.titre,
-            type_sp: dbRow.type_sp,
+            mode: dbRow.mode,
             module: dbRow.module,
-            contenu_vise: dbRow.contenu_vise,
-            profils: dbRow.profils_vark || [],
+            sequence: dbRow.sequence,
+            savoirs_couverts: Array.isArray(dbRow.savoirs_couverts) ? dbRow.savoirs_couverts : [],
+            duree_estimee: dbRow.duree_estimee,
             date: dbRow.created_at ? new Date(dbRow.created_at).toLocaleDateString("fr-MA") : "",
-            data: dbRow.data
+            data: dbRow.contenu_json,
           }));
           setHistory(mapped);
         }
@@ -174,84 +152,37 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
     }
   };
 
-  // Stats
-  const totalSP = history.filter((e) => e.type_sp !== "evaluation").length;
-  const totalEval = history.filter((e) => e.type_sp === "evaluation").length;
-
   // Unique modules for filter
   const modules = Array.from(new Set(history.map((e) => e.module).filter(Boolean)));
 
   // Filtered list
-  const filtered = history.filter((e) => {
-    const moduleOk = !filterModule || e.module === filterModule;
-    const tabOk =
-      activeTab === "all" ||
-      (activeTab === "generated" && e.type_sp !== "evaluation") ||
-      (activeTab === "evaluated" && e.type_sp === "evaluation");
-    return moduleOk && tabOk;
-  });
-
-  const stats = [
-    { label: "Situations-problèmes générées", value: totalSP, color: "var(--accent)", icon: "📚" },
-    { label: "Situations-problèmes évaluées", value: totalEval, color: "var(--green)", icon: "📝" },
-  ];
+  const filtered = history.filter((e) => !filterModule || e.module === filterModule);
 
   return (
     <>
       <main style={{ flex: 1, padding: "32px 24px 60px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>📊 Tableau de bord</h1>
         <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 32 }}>
-          Historique de vos situations-problèmes et de vos rapports d'évaluation
+          Historique de vos situations-problèmes générées
         </p>
 
         {/* Stats row */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
-          {stats.map((s) => (
-            <div key={s.label} style={{
-              background: "var(--bg2)", border: "1px solid var(--border)",
-              borderRadius: 16, padding: "22px 24px", borderTop: `3px solid ${s.color}`,
-            }}>
-              <div style={{ fontSize: 28, marginBottom: 6 }}>{s.icon}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 36, fontWeight: 700, color: s.color, lineHeight: 1, marginBottom: 6 }}>{s.value}</div>
-              <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500 }}>{s.label}</div>
+          <div style={{
+            background: "var(--bg2)", border: "1px solid var(--border)",
+            borderRadius: 16, padding: "22px 24px", borderTop: "3px solid var(--accent)",
+          }}>
+            <div style={{ fontSize: 28, marginBottom: 6 }}>📚</div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 36, fontWeight: 700, color: "var(--accent)", lineHeight: 1, marginBottom: 6 }}>
+              {history.length}
             </div>
-          ))}
+            <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500 }}>Situations-problèmes générées</div>
+          </div>
         </div>
 
-        {/* Tabs */}
-        {history.length > 0 && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
-            {([
-              { id: "all", label: "📁 Tout", count: history.length },
-              { id: "generated", label: "📚 Générées", count: totalSP },
-              { id: "evaluated", label: "📝 Évaluées", count: totalEval }
-            ] as const).map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                style={{
-                  padding: "8px 16px", borderRadius: 8, border: "none",
-                  background: activeTab === t.id ? "var(--accent-glow)" : "transparent",
-                  color: activeTab === t.id ? "var(--accent)" : "var(--text2)",
-                  fontSize: 13.5, fontWeight: 600, cursor: "pointer",
-                  fontFamily: "'Sora', sans-serif", display: "flex", alignItems: "center", gap: 6,
-                  transition: "all 0.2s"
-                }}
-              >
-                <span>{t.label}</span>
-                <span style={{
-                  fontSize: 11, padding: "1px 6px", borderRadius: 100,
-                  background: "var(--bg3)", color: "var(--text3)"
-                }}>{t.count}</span>
-              </button>
-            ))}
-          </div>
-        )}
- 
         {/* Filter bar */}
         {history.length > 0 && (
           <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-            {/* Module dropdown */}
             <select
               value={filterModule}
               onChange={(e) => setFilterModule(e.target.value)}
@@ -309,60 +240,54 @@ export default function Dashboard({ user, onNavigate }: { user: any; onNavigate?
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
             {filtered.map((entry) => {
-              const tc = TYPE_COLOR[entry.type_sp] || "var(--accent)";
+              // Le titre affiché vient de la première variante générée
+              // (contenu_json.variantes[0].titre_sp), avec repli sur la séquence.
+              const titre = entry.data?.variantes?.[0]?.titre_sp || entry.sequence || "Situation-problème";
+              const nbPaliers = entry.data?.variantes?.[0]?.paliers?.length ?? 0;
+
               return (
                 <div key={entry.id} style={{
                   background: "var(--bg2)", border: "1px solid var(--border)",
                   borderRadius: 16, padding: "20px 22px",
-                  borderTop: `3px solid ${tc}`, transition: "box-shadow 0.2s",
+                  borderTop: "3px solid var(--accent)", transition: "box-shadow 0.2s",
                 }}
                   onMouseOver={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 24px var(--shadow)"}
                   onMouseOut={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = "none"}
                 >
                   {/* Title */}
                   <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", marginBottom: 12, lineHeight: 1.4 }}>
-                    {entry.titre}
+                    {titre}
                   </div>
 
                   {/* Badges */}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                    {/* Module */}
                     <span style={{
                       padding: "2px 9px", borderRadius: 100, fontSize: 11, fontWeight: 600,
                       fontFamily: "'JetBrains Mono', monospace",
                       background: "var(--bg3)", color: "var(--text3)", border: "1px solid var(--border)",
                     }}>{entry.module?.split("—")[0]?.trim() || "—"}</span>
-                    {/* Type */}
+
                     <span style={{
                       padding: "2px 9px", borderRadius: 100, fontSize: 11, fontWeight: 600,
                       fontFamily: "'JetBrains Mono', monospace",
-                      background: `color-mix(in srgb, ${tc} 14%, transparent)`,
-                      color: tc, border: `1px solid color-mix(in srgb, ${tc} 35%, transparent)`,
-                    }}>{TYPE_LABEL[entry.type_sp] || entry.type_sp}</span>
-                    {/* VARK profils or score */}
-                    {entry.type_sp === "evaluation" ? (
-                      (() => {
-                        const note = entry.data?.evaluation?.evaluation_globale?.note_sur_20 ?? 0;
-                        const noteColor = note >= 14 ? "var(--green)" : note >= 10 ? "var(--orange)" : "var(--red)";
-                        return (
-                          <span style={{
-                            padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
-                            fontFamily: "'JetBrains Mono', monospace",
-                            background: `color-mix(in srgb, ${noteColor} 14%, transparent)`,
-                            color: noteColor, border: `1px solid color-mix(in srgb, ${noteColor} 35%, transparent)`,
-                          }}>
-                            🎯 {note}/20
-                          </span>
-                        );
-                      })()
-                    ) : (
-                      (entry.profils || []).map((p) => (
-                        <span key={p} style={{
-                          padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
-                          fontFamily: "'JetBrains Mono', monospace",
-                          background: "var(--bg3)", color: "var(--accent2)", border: "1px solid var(--border)",
-                        }}>{PROFIL_LABEL[p] || p}</span>
-                      ))
+                      background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+                      color: "var(--accent)", border: "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
+                    }}>{entry.mode === "sequence" ? "📚 Séquence" : "🎯 Notion"}</span>
+
+                    {nbPaliers > 0 && (
+                      <span style={{
+                        padding: "2px 9px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        background: "var(--bg3)", color: "var(--accent2)", border: "1px solid var(--border)",
+                      }}>📐 {nbPaliers} palier{nbPaliers > 1 ? "s" : ""}</span>
+                    )}
+
+                    {entry.duree_estimee && (
+                      <span style={{
+                        padding: "2px 9px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        background: "var(--bg3)", color: "var(--text3)", border: "1px solid var(--border)",
+                      }}>⏱ {entry.duree_estimee}</span>
                     )}
                   </div>
 
