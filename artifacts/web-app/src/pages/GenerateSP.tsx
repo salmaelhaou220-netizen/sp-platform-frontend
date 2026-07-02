@@ -1,4 +1,4 @@
-// GenerateSP.tsx – V5.3 compatible
+// GenerateSP.tsx – V5.5 compatible
 import { useState, useEffect } from "react";
 import SPResultDisplay from "../components/SPResultDisplay";
 import { supabase } from "../lib/supabase";
@@ -40,6 +40,19 @@ const labelStyle: React.CSSProperties = {
   textTransform: "uppercase",
   marginBottom: 7,
 };
+
+const exportBtnStyle = (color: string): React.CSSProperties => ({
+  padding: "10px 18px",
+  borderRadius: 8,
+  border: `1.5px solid ${color}`,
+  background: "var(--bg2)",
+  color: color,
+  cursor: "pointer",
+  fontFamily: "'Sora', sans-serif",
+  fontSize: 14,
+  fontWeight: 500,
+  transition: "all 0.2s",
+});
 
 export default function GenerateSP({ user }: { user: any }) {
   const [mode, setMode] = useState<"sequence" | "notion">("sequence");
@@ -100,13 +113,14 @@ export default function GenerateSP({ user }: { user: any }) {
     setError("");
     setResult(null);
 
-    // Build body according to V5.3 API
+    // Corps de requête conforme à GenerateRequest (backend V5.5).
+    // "type_sp" a été retiré : toutes les SP générées sont désormais
+    // exclusivement didactiques, ce paramètre n'existe plus côté API.
     const body = mode === "sequence"
       ? {
         mode: "sequence",
         module: selectedModule,
         sequence: selectedSequence,
-        type_sp: "didactique",
         nombre_variantes: nombreVariantes,
         niveau_difficulte: NIVEAUX[niveauIdx],
         langue: LANGUES[langueIdx],
@@ -115,7 +129,6 @@ export default function GenerateSP({ user }: { user: any }) {
         mode: "notion",
         mini_prompt: miniPrompt,
         module: selectedModule,
-        type_sp: "didactique",
         langue: LANGUES[langueIdx],
       };
 
@@ -128,50 +141,59 @@ export default function GenerateSP({ user }: { user: any }) {
       const json = await res.json();
       console.log("API response:", json); // debug
 
-      if (json.success && json.data) {
-        setResult(json.data);
-
-        // Save to Supabase if user is logged in
-        if (user) {
-          try {
-            const spData = json.data;
-            const firstVariante = spData.variantes?.[0];
-            await supabase.from("situations_problemes").insert({
-              user_id: user.id,
-              titre: firstVariante?.titre_sp || spData.sequence || "SP sans titre",
-              type_sp: "didactique",
-              module: spData.module || selectedModule,
-              contenu_vise: spData.sequence || selectedSequence,
-              profils_vark: ["didactique"],
-              data: spData,
-            });
-          } catch (err) {
-            console.error("Erreur sauvegarde Supabase:", err);
-          }
-        }
-      } else {
-        setError(json.detail || json.message || "Erreur lors de la génération.");
+      if (!res.ok) {
+        // FastAPI renvoie {"detail": "..."} en cas d'erreur (400/500/503)
+        throw new Error(json.detail || `Erreur serveur (${res.status})`);
       }
-    } catch (err) {
-      console.error("Fetch error:", err);
-      setError("Impossible de joindre le serveur. Veuillez réessayer.");
+
+      if (!json.success || !json.data) {
+        throw new Error("Réponse du serveur invalide.");
+      }
+
+      const spData = json.data;
+      setResult(spData);
+
+      // Save to Supabase if user is logged in
+      if (user) {
+        try {
+          const currentMode = spData.mode || (selectedSequence ? "sequence" : "notion");
+          const modulePeda = spData.module || selectedModule || "Module inconnu";
+          const sequencePeda = spData.sequence || selectedSequence || "Non spécifiée";
+          const duree = spData.duree_estimee || "Non spécifiée";
+
+          // Sécurité critique pour le type JSONB non nul (savoirs_couverts)
+          const savoirs = Array.isArray(spData.savoirs_couverts)
+            ? spData.savoirs_couverts
+            : (spData.savoirs ? [spData.savoirs] : []);
+
+          const { error: supabaseError } = await supabase
+            .from("situations_problemes")
+            .insert({
+              user_id: user.id,
+              mode: currentMode,
+              module: modulePeda,
+              sequence: sequencePeda,
+              savoirs_couverts: savoirs,    // jsonb
+              duree_estimee: duree,          // text
+              contenu_json: spData,          // jsonb — arborescence complète (variantes, paliers, simulateurs)
+            });
+
+          if (supabaseError) {
+            console.error("❌ ÉCHEC SUPABASE :", supabaseError.message, supabaseError.details);
+          } else {
+            console.log("✅ Situation-problème enregistrée dans Supabase.");
+          }
+        } catch (err) {
+          console.error("Erreur durant la préparation des données pour Supabase:", err);
+        }
+      }
+    } catch (err: any) {
+      console.error("Erreur de génération:", err);
+      setError(err.message || "Une erreur est survenue lors de la génération.");
     } finally {
       setLoading(false);
     }
   };
-
-  const exportBtnStyle = (color: string): React.CSSProperties => ({
-    padding: "10px 18px",
-    borderRadius: 8,
-    border: `1.5px solid ${color}`,
-    background: "var(--bg2)",
-    color: color,
-    cursor: "pointer",
-    fontFamily: "'Sora', sans-serif",
-    fontSize: 14,
-    fontWeight: 500,
-    transition: "all 0.2s",
-  });
 
   return (
     <main style={{
@@ -312,6 +334,9 @@ export default function GenerateSP({ user }: { user: any }) {
                 </button>
               ))}
             </div>
+            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6, fontStyle: "italic" }}>
+              Le serveur limite automatiquement à 2 variantes pour les séquences à 3 savoirs ou plus.
+            </div>
           </div>
         )}
 
@@ -424,7 +449,7 @@ export default function GenerateSP({ user }: { user: any }) {
             <p style={{ color: "var(--text2)", fontSize: 14, textAlign: "center" }}>
               Génération en cours…<br />
               <span style={{ fontSize: 12, color: "var(--text3)" }}>
-                (peut prendre 30–60s si le serveur est en veille)
+                (peut prendre 30–90s selon le nombre de paliers/variantes)
               </span>
             </p>
           </div>
